@@ -46,7 +46,8 @@ const Employees: React.FC = () => {
   const filteredEmployees = employees.filter(e => 
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.cpf.includes(searchTerm) ||
-    e.workName.toLowerCase().includes(searchTerm.toLowerCase())
+    e.workName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.contractorName && e.contractorName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleOpenModal = (employee?: Employee) => {
