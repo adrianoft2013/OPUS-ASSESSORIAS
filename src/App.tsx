@@ -18,7 +18,23 @@ import Login from './pages/Login';
 import { Loader2 } from 'lucide-react';
 
 const AppRoutes = () => {
-  const { user, loading } = useApp();
+  const { user, loading, companyData } = useApp();
+
+  React.useEffect(() => {
+    document.title = "Opus Assessorias v1.0";
+  }, []);
+
+  React.useEffect(() => {
+    if (companyData?.logoUrl) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = companyData.logoUrl;
+    }
+  }, [companyData?.logoUrl]);
 
   if (loading) {
     return (
