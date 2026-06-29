@@ -202,7 +202,7 @@ const Employees: React.FC = () => {
                     </td>
                     {DOCUMENT_TYPES.map(type => {
                       const doc = employee.documents?.find(d => d.type === type);
-                      const isNAType = ['ASO', 'NR06', 'NR10', 'NR12', 'NR18', 'NR35'].includes(type.toUpperCase());
+                      const isNAType = ['ASO', 'EPI', 'NR06', 'NR10', 'NR12', 'NR18', 'NR35'].includes(type.toUpperCase());
                       return (
                         <td key={type} className="px-4 py-3 text-center">
                           <div className={cn("whitespace-nowrap", getStatusColor(doc?.dueDate || ''))}>
