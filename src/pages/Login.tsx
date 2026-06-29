@@ -15,10 +15,8 @@ const Login: React.FC = () => {
     setError(null);
 
     try {
-      // Mock login - accepts any credentials
-      // In a real local-only app, you might have a hardcoded password
       if (email && password) {
-        await login(email);
+        await login(email, password);
       } else {
         throw new Error('Por favor, preencha todos os campos');
       }
