@@ -19,7 +19,7 @@ const getStatusColor = (dueDate: string) => {
 };
 
 const Employees: React.FC = () => {
-  const { employees, works, companies, addEmployee, updateEmployee } = useApp();
+  const { employees, works, companies, addEmployee, updateEmployee, deleteEmployee } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -27,6 +27,12 @@ const Employees: React.FC = () => {
   // Form State
   const [formDocuments, setFormDocuments] = useState<EmployeeDocument[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir o funcionário "${name}"?`)) {
+      deleteEmployee(id);
+    }
+  };
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -212,10 +218,23 @@ const Employees: React.FC = () => {
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3 text-right">
-                      <button className="p-2 text-gray-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all">
-                        <Edit2 size={16} />
-                      </button>
+                     <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => handleOpenModal(employee)}
+                          className="p-2 text-gray-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(employee.id, employee.name)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -101,14 +101,16 @@ const Sidebar: React.FC = () => {
           {/* Footer Info */}
           <div className="mt-auto pt-6 border-t border-gray-100 space-y-4">
             <button
-              onClick={() => signOut()}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+              onClick={() => {
+                signOut();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
             >
               <LogOut size={20} />
               <span className="font-medium">Sair do Sistema</span>
             </button>
             <p className="text-xs text-gray-400 text-center">
-              ConstruManage v1.0
+              SYS - Sistemas Web
             </p>
           </div>
         </div>

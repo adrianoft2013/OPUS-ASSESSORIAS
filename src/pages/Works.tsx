@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, HardHat, X, Building2, User, Phone, MapPin, Calendar, Save, Trash2 } from 'lucide-react';
+import { Search, Plus, HardHat, X, Building2, User, Phone, MapPin, Calendar, Save, Trash2, Edit2 } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Work } from '../types';
 import { cn } from '../lib/utils';
@@ -10,6 +10,10 @@ const Works: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedWork, setSelectedWork] = useState<Work | null>(null);
   const [formData, setFormData] = useState<Partial<Work>>({});
+
+  // States for viewing work detail sheet ("ficha")
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [workToView, setWorkToView] = useState<Work | null>(null);
 
   useEffect(() => {
     if (selectedWork) {
@@ -27,6 +31,16 @@ const Works: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedWork(null);
+  };
+
+  const handleOpenDetail = (work: Work) => {
+    setWorkToView(work);
+    setIsDetailOpen(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setWorkToView(null);
   };
 
   const handleChange = (field: keyof Work, value: string) => {
@@ -56,14 +70,24 @@ const Works: React.FC = () => {
       handleCloseModal();
     } catch (error) {
       console.error('Erro ao salvar obra:', error);
-      alert('Erro ao salvar a obra. Verifique sua conexão e as configurações do Supabase.');
+      alert('Erro ao salvar a obra. Verifique sua conexão.');
     }
   };
 
-  const handleDelete = () => {
-    if (selectedWork && confirm('Tem certeza que deseja excluir esta obra?')) {
-      deleteWork(selectedWork.id);
-      handleCloseModal();
+  const handleDeleteWork = async (id: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir a obra "${name}"?`)) {
+      try {
+        await deleteWork(id);
+        if (isDetailOpen && workToView?.id === id) {
+          handleCloseDetail();
+        }
+        if (isModalOpen && selectedWork?.id === id) {
+          handleCloseModal();
+        }
+      } catch (error) {
+        console.error('Erro ao excluir:', error);
+        alert('Erro ao excluir a obra.');
+      }
     }
   };
 
@@ -111,7 +135,7 @@ const Works: React.FC = () => {
                 <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Obra</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Construtora</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Cidade / UF</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Ações</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 text-sm text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -120,7 +144,7 @@ const Works: React.FC = () => {
                   <tr 
                     key={work.id} 
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => handleOpenModal(work)}
+                    onClick={() => handleOpenDetail(work)}
                   >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{work.name}</div>
@@ -132,10 +156,23 @@ const Works: React.FC = () => {
                     <td className="px-6 py-4 text-gray-600">
                       {work.city} - {work.uf}
                     </td>
-                    <td className="px-6 py-4">
-                      <button className="text-gray-400 hover:text-gray-900 transition-colors">
-                        Ver detalhes
-                      </button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => handleOpenModal(work)}
+                          className="p-2 text-gray-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteWork(work.id, work.name)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -264,7 +301,7 @@ const Works: React.FC = () => {
                   <button 
                     type="button"
                     className="flex items-center gap-2 text-red-500 font-bold hover:text-red-600 transition-colors"
-                    onClick={handleDelete}
+                    onClick={() => handleDeleteWork(selectedWork.id, selectedWork.name)}
                   >
                     <Trash2 size={20} />
                     Excluir Obra
@@ -288,6 +325,108 @@ const Works: React.FC = () => {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Ficha da Obra (Visualização de Detalhes) */}
+      {isDetailOpen && workToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-brand/5 to-transparent border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-brand/10 text-brand rounded-xl">
+                  <HardHat size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Ficha da Obra</h2>
+                  <p className="text-xs text-gray-500">Detalhes completos do canteiro</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCloseDetail} 
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-6">
+              {/* Informações Básicas */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Informações da Obra</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                  <div className="sm:col-span-2">
+                    <span className="text-xs text-gray-500 block">Nome da Obra</span>
+                    <span className="font-medium text-gray-950">{workToView.name}</span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-xs text-gray-500 block">Construtora</span>
+                    <span className="font-medium text-gray-950 flex items-center gap-1.5">
+                      <Building2 size={14} className="text-gray-400" />
+                      {workToView.companyName}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Cidade / UF</span>
+                    <span className="font-medium text-gray-950">{workToView.city} - {workToView.uf}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Data de Cadastro</span>
+                    <span className="font-medium text-gray-950">
+                      {workToView.createdAt ? new Date(workToView.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações de Contato / Responsável */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Responsável Técnico</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                  <div>
+                    <span className="text-xs text-gray-500 block">Engenheiro / Responsável</span>
+                    <span className="font-medium text-gray-950">{workToView.responsible || 'Não informado'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Telefone / WhatsApp</span>
+                    <span className="font-medium text-gray-950">{workToView.phone || 'Não informado'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  handleCloseDetail();
+                  handleOpenModal(workToView);
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-brand text-white font-medium rounded-xl hover:bg-brand-hover transition-colors flex items-center justify-center gap-2"
+              >
+                <Edit2 size={16} />
+                Editar Obra
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteWork(workToView.id, workToView.name)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} />
+                Excluir Obra
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseDetail}
+                className="w-full sm:w-auto px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                Fechar Ficha
+              </button>
+            </div>
           </div>
         </div>
       )}

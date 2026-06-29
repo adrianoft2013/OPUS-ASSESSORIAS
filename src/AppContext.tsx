@@ -16,11 +16,13 @@ interface AppContextType {
   companyData: CompanyData;
   addCompany: (company: Omit<Company, 'id' | 'createdAt'>) => Promise<void>;
   updateCompany: (id: string, company: Partial<Company>) => Promise<void>;
+  deleteCompany: (id: string) => Promise<void>;
   addWork: (work: Omit<Work, 'id' | 'createdAt'>) => Promise<void>;
   updateWork: (id: string, work: Partial<Work>) => Promise<void>;
   addInspection: (inspection: Omit<Inspection, 'id'>) => Promise<void>;
   addEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (id: string, employee: Partial<Employee>) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
   updateCompanyData: (data: Partial<CompanyData>) => Promise<void>;
   login: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -102,6 +104,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(updated));
   };
 
+  const deleteCompany = async (id: string) => {
+    const updated = companies.filter(c => c.id !== id);
+    setCompanies(updated);
+    localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(updated));
+  };
+
   const addWork = async (work: Omit<Work, 'id' | 'createdAt'>) => {
     const newWork: Work = {
       ...work,
@@ -145,6 +153,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(updated));
   };
 
+  const deleteEmployee = async (id: string) => {
+    const updated = employees.filter(e => e.id !== id);
+    setEmployees(updated);
+    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(updated));
+  };
+
   const updateCompanyData = async (data: Partial<CompanyData>) => {
     const updated = { ...companyData, ...data };
     setCompanyData(updated);
@@ -162,11 +176,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       companyData,
       addCompany,
       updateCompany,
+      deleteCompany,
       addWork,
       updateWork,
       addInspection,
       addEmployee,
       updateEmployee,
+      deleteEmployee,
       updateCompanyData,
       login,
       signOut

@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { Search, Plus, X, Building2, Phone, Mail, MapPin, Calendar, User } from 'lucide-react';
+import { Search, Plus, X, Building2, Phone, Mail, MapPin, Calendar, User, Edit2, Trash2 } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Company } from '../types';
 import { cn } from '../lib/utils';
 
 const Companies: React.FC = () => {
-  const { companies, addCompany, updateCompany } = useApp();
+  const { companies, addCompany, updateCompany, deleteCompany } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+
+  // States for viewing company detail sheet ("ficha")
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [companyToView, setCompanyToView] = useState<Company | null>(null);
 
   const filteredCompanies = companies.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -23,6 +27,30 @@ const Companies: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedCompany(null);
+  };
+
+  const handleOpenDetail = (company: Company) => {
+    setCompanyToView(company);
+    setIsDetailOpen(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setCompanyToView(null);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir a construtora "${name}"?`)) {
+      try {
+        await deleteCompany(id);
+        if (isDetailOpen && companyToView?.id === id) {
+          handleCloseDetail();
+        }
+      } catch (error) {
+        console.error('Erro ao excluir:', error);
+        alert('Erro ao excluir construtora.');
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -91,7 +119,7 @@ const Companies: React.FC = () => {
                 <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Nome</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Cidade / UF</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Data Cadastro</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 text-sm">Ações</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 text-sm text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -100,7 +128,7 @@ const Companies: React.FC = () => {
                   <tr 
                     key={company.id} 
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => handleOpenModal(company)}
+                    onClick={() => handleOpenDetail(company)}
                   >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{company.name}</div>
@@ -112,10 +140,23 @@ const Companies: React.FC = () => {
                     <td className="px-6 py-4 text-gray-600 text-sm">
                       {new Date(company.createdAt).toLocaleDateString('pt-BR')}
                     </td>
-                    <td className="px-6 py-4">
-                      <button className="text-gray-400 hover:text-gray-900 transition-colors">
-                        Ver detalhes
-                      </button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => handleOpenModal(company)}
+                          className="p-2 text-gray-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(company.id, company.name)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -131,7 +172,7 @@ const Companies: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal - Cadastro/Edição */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -257,6 +298,111 @@ const Companies: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Ficha da Construtora (Visualização de Detalhes) */}
+      {isDetailOpen && companyToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-brand/5 to-transparent border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-brand/10 text-brand rounded-xl">
+                  <Building2 size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Ficha da Construtora</h2>
+                  <p className="text-xs text-gray-500">Detalhes completos da parceira</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCloseDetail} 
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-6">
+              {/* Informações Básicas */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Informações Principais</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                  <div>
+                    <span className="text-xs text-gray-500 block">Razão Social / Fantasia</span>
+                    <span className="font-medium text-gray-950">{companyToView.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">CNPJ</span>
+                    <span className="font-medium text-gray-950">{companyToView.cnpj || 'Não informado'}</span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-xs text-gray-500 block">Endereço</span>
+                    <span className="font-medium text-gray-950">{companyToView.address || 'Não informado'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Cidade / UF</span>
+                    <span className="font-medium text-gray-950">{companyToView.city} - {companyToView.uf}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Telefone Comercial</span>
+                    <span className="font-medium text-gray-950">{companyToView.phone || 'Não informado'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações de Contato */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ponto de Contato</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                  <div>
+                    <span className="text-xs text-gray-500 block">Nome do Contato</span>
+                    <span className="font-medium text-gray-950">{companyToView.contactName || 'Não informado'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">WhatsApp / Telefone</span>
+                    <span className="font-medium text-gray-950">{companyToView.contactPhone || 'Não informado'}</span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-xs text-gray-500 block">E-mail</span>
+                    <span className="font-medium text-gray-950">{companyToView.contactEmail || 'Não informado'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  handleCloseDetail();
+                  handleOpenModal(companyToView);
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-brand text-white font-medium rounded-xl hover:bg-brand-hover transition-colors flex items-center justify-center gap-2"
+              >
+                <Edit2 size={16} />
+                Editar Construtora
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(companyToView.id, companyToView.name)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} />
+                Excluir Construtora
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseDetail}
+                className="w-full sm:w-auto px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                Fechar Ficha
+              </button>
+            </div>
           </div>
         </div>
       )}

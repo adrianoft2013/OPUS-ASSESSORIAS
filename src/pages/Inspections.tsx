@@ -304,7 +304,7 @@ const Inspections: React.FC = () => {
       <div className="pt-12 mt-12 border-t border-gray-100 flex justify-between items-end text-gray-400 text-xs">
         <div>
           <p className="font-bold uppercase tracking-widest mb-1">{companyData.name}</p>
-          <p>Sistema de Gestão de Obras - ConstruManage</p>
+          <p>Sistema de Gestão de Obras - SYS - Sistemas Web</p>
         </div>
         <div className="text-right">
           <p>Assinatura do Responsável</p>
