@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 
 -- Triggers de data de atualização
+DROP TRIGGER IF EXISTS update_companies_updated_at ON public.companies;
 CREATE TRIGGER update_companies_updated_at
     BEFORE UPDATE ON public.companies
     FOR EACH ROW
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS public.works (
 ALTER TABLE public.works ENABLE ROW LEVEL SECURITY;
 
 -- Triggers de data de atualização
+DROP TRIGGER IF EXISTS update_works_updated_at ON public.works;
 CREATE TRIGGER update_works_updated_at
     BEFORE UPDATE ON public.works
     FOR EACH ROW
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS public.inspections (
 ALTER TABLE public.inspections ENABLE ROW LEVEL SECURITY;
 
 -- Triggers de data de atualização
+DROP TRIGGER IF EXISTS update_inspections_updated_at ON public.inspections;
 CREATE TRIGGER update_inspections_updated_at
     BEFORE UPDATE ON public.inspections
     FOR EACH ROW
@@ -122,6 +125,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 
 -- Triggers de data de atualização
+DROP TRIGGER IF EXISTS update_employees_updated_at ON public.employees;
 CREATE TRIGGER update_employees_updated_at
     BEFORE UPDATE ON public.employees
     FOR EACH ROW
@@ -143,6 +147,7 @@ CREATE TABLE IF NOT EXISTS public.company_data (
 ALTER TABLE public.company_data ENABLE ROW LEVEL SECURITY;
 
 -- Triggers de data de atualização
+DROP TRIGGER IF EXISTS update_company_data_updated_at ON public.company_data;
 CREATE TRIGGER update_company_data_updated_at
     BEFORE UPDATE ON public.company_data
     FOR EACH ROW
@@ -154,6 +159,7 @@ CREATE TRIGGER update_company_data_updated_at
 -- =========================================================================
 
 -- Políticas para companies
+DROP POLICY IF EXISTS "Usuários podem gerenciar suas próprias empresas" ON public.companies;
 CREATE POLICY "Usuários podem gerenciar suas próprias empresas" 
     ON public.companies 
     FOR ALL 
@@ -161,6 +167,7 @@ CREATE POLICY "Usuários podem gerenciar suas próprias empresas"
     WITH CHECK (auth.uid() = user_id);
 
 -- Políticas para works
+DROP POLICY IF EXISTS "Usuários podem gerenciar suas próprias obras" ON public.works;
 CREATE POLICY "Usuários podem gerenciar suas próprias obras" 
     ON public.works 
     FOR ALL 
@@ -168,6 +175,7 @@ CREATE POLICY "Usuários podem gerenciar suas próprias obras"
     WITH CHECK (auth.uid() = user_id);
 
 -- Políticas para inspections
+DROP POLICY IF EXISTS "Usuários podem gerenciar suas próprias inspeções" ON public.inspections;
 CREATE POLICY "Usuários podem gerenciar suas próprias inspeções" 
     ON public.inspections 
     FOR ALL 
@@ -175,6 +183,7 @@ CREATE POLICY "Usuários podem gerenciar suas próprias inspeções"
     WITH CHECK (auth.uid() = user_id);
 
 -- Políticas para employees
+DROP POLICY IF EXISTS "Usuários podem gerenciar seus próprios funcionários" ON public.employees;
 CREATE POLICY "Usuários podem gerenciar seus próprios funcionários" 
     ON public.employees 
     FOR ALL 
@@ -182,6 +191,7 @@ CREATE POLICY "Usuários podem gerenciar seus próprios funcionários"
     WITH CHECK (auth.uid() = user_id);
 
 -- Políticas para company_data
+DROP POLICY IF EXISTS "Usuários podem gerenciar seus próprios dados corporativos" ON public.company_data;
 CREATE POLICY "Usuários podem gerenciar seus próprios dados corporativos" 
     ON public.company_data 
     FOR ALL 

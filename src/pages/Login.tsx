@@ -3,20 +3,28 @@ import { Lock, Mail, Loader2 } from 'lucide-react';
 import { useApp } from '../AppContext';
 
 const Login: React.FC = () => {
-  const { companyData, login } = useApp();
+  const { companyData, login, signUp } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMsg(null);
 
     try {
       if (email && password) {
-        await login(email, password);
+        if (isSignUp) {
+          await signUp(email, password);
+          setSuccessMsg('Cadastro realizado com sucesso! Você está logado.');
+        } else {
+          await login(email, password);
+        }
       } else {
         throw new Error('Por favor, preencha todos os campos');
       }
@@ -46,12 +54,20 @@ const Login: React.FC = () => {
             )}
           </div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">{companyData.name}</h2>
-          <p className="mt-2 text-gray-500 font-medium">Acesse sua conta para gerenciar suas obras</p>
+          <p className="mt-2 text-gray-500 font-medium">
+            {isSignUp ? 'Crie sua conta para gerenciar suas obras' : 'Acesse sua conta para gerenciar suas obras'}
+          </p>
         </div>
 
         {error && (
           <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-lg text-sm font-medium">
             {error}
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="bg-green-50 border border-green-100 text-green-600 px-4 py-3 rounded-lg text-sm font-medium">
+            {successMsg}
           </div>
         )}
 
@@ -94,10 +110,24 @@ const Login: React.FC = () => {
             {loading ? (
               <Loader2 className="animate-spin" size={24} />
             ) : (
-              'Entrar no Sistema'
+              isSignUp ? 'Criar Nova Conta' : 'Entrar no Sistema'
             )}
           </button>
         </form>
+
+        <div className="text-center mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError(null);
+              setSuccessMsg(null);
+            }}
+            className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+          >
+            {isSignUp ? 'Já possui uma conta? Entrar' : 'Não tem uma conta? Cadastre-se'}
+          </button>
+        </div>
 
         <div className="text-center text-xs text-gray-400 font-medium">
           &copy; {new Date().getFullYear()} OPUS ASSESSORIAS - Todos os direitos reservados

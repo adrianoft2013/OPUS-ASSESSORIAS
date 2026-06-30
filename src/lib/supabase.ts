@@ -1,8 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import { Company, Work, Inspection, Employee, CompanyData } from '../types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://nppqkdkhypeqeluweava.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_aesIKA2xHnJxFWYN3MykKg_vzEFlFL-';
+const getCleanSupabaseUrl = (): string => {
+  let rawUrl = (import.meta as any).env.VITE_SUPABASE_URL || 'https://nppqkdkhypeqeluweava.supabase.co';
+  // Remove trailing /rest/v1 or /rest/v1/
+  rawUrl = rawUrl.replace(/\/rest\/v1\/?$/, '');
+  // Remove any trailing slash
+  rawUrl = rawUrl.replace(/\/$/, '');
+  return rawUrl;
+};
+
+const SUPABASE_URL = getCleanSupabaseUrl();
+const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_aesIKA2xHnJxFWYN3MykKg_vzEFlFL-';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

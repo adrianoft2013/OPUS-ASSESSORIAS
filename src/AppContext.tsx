@@ -39,6 +39,7 @@ interface AppContextType {
   deleteEmployee: (id: string) => Promise<void>;
   updateCompanyData: (data: Partial<CompanyData>) => Promise<void>;
   login: (email: string, password?: string) => Promise<void>;
+  signUp: (email: string, password?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -226,6 +227,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(newUser);
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
       loadLocalStorageData();
+    }
+  };
+
+  const signUp = async (email: string, password?: string) => {
+    if (!password) {
+      throw new Error('Uma senha é obrigatória para cadastro.');
+    }
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      throw error;
+    }
+    if (data.user) {
+      const newUser = { id: data.user.id, email: data.user.email || email };
+      setUser(newUser);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+      await fetchUserData(data.user.id);
     }
   };
 
@@ -463,6 +480,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteEmployee,
       updateCompanyData,
       login,
+      signUp,
       signOut
     }}>
       {children}
