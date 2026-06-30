@@ -118,7 +118,8 @@ export const mapEmployeeFromDB = (db: any): Employee => ({
   isContractor: db.is_contractor ?? false,
   contractorName: db.contractor_name || '',
   serviceOrder: db.service_order || '',
-  registrationRecord: db.registration_record || ''
+  registrationRecord: db.registration_record || '',
+  employmentContract: db.employment_contract || ''
 });
 
 export const mapEmployeeToDB = (employee: Partial<Employee> & { user_id?: string }) => {
@@ -138,6 +139,7 @@ export const mapEmployeeToDB = (employee: Partial<Employee> & { user_id?: string
   if (employee.contractorName !== undefined) db.contractor_name = employee.contractorName;
   if (employee.serviceOrder !== undefined) db.service_order = employee.serviceOrder;
   if (employee.registrationRecord !== undefined) db.registration_record = employee.registrationRecord;
+  if (employee.employmentContract !== undefined) db.employment_contract = employee.employmentContract;
   return db;
 };
 

@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
     contractor_name TEXT,
     service_order TEXT,
     registration_record TEXT,
+    employment_contract TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
