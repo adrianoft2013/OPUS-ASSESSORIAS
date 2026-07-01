@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, 
   Plus, 
@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Trash2,
-  Download
+  Download,
+  ArrowLeft
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -23,18 +24,130 @@ import { cn } from '../lib/utils';
 const Inspections: React.FC = () => {
   const { inspections, works, companies, addInspection, companyData } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
+  
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem('draft_inspection_open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(() => {
+    try {
+      const saved = localStorage.getItem('draft_inspection_selected');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   // Form State
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
-  const [selectedWorkId, setSelectedWorkId] = useState('');
-  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [status, setStatus] = useState<'conformity' | 'non-conformity'>('conformity');
-  const [evidences, setEvidences] = useState<Evidence[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
+    try {
+      return localStorage.getItem('draft_inspection_company_id') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [selectedWorkId, setSelectedWorkId] = useState(() => {
+    try {
+      return localStorage.getItem('draft_inspection_work_id') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [inspectionDate, setInspectionDate] = useState(() => {
+    try {
+      return localStorage.getItem('draft_inspection_date') || new Date().toISOString().split('T')[0];
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  });
+
+  const [status, setStatus] = useState<'conformity' | 'non-conformity'>(() => {
+    try {
+      return (localStorage.getItem('draft_inspection_status') as 'conformity' | 'non-conformity') || 'conformity';
+    } catch {
+      return 'conformity';
+    }
+  });
+
+  const [evidences, setEvidences] = useState<Evidence[]>(() => {
+    try {
+      const saved = localStorage.getItem('draft_inspection_evidences');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const pdfRef = useRef<HTMLDivElement>(null);
+
+  // Synchronize draft inspection states to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_inspection_open', String(isModalOpen));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    try {
+      if (selectedInspection) {
+        localStorage.setItem('draft_inspection_selected', JSON.stringify(selectedInspection));
+      } else {
+        localStorage.removeItem('draft_inspection_selected');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedInspection]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_inspection_company_id', selectedCompanyId);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_inspection_work_id', selectedWorkId);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedWorkId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_inspection_date', inspectionDate);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [inspectionDate]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_inspection_status', status);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_inspection_evidences', JSON.stringify(evidences));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [evidences]);
 
   const filteredInspections = inspections.filter(i => 
     i.workName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,13 +159,20 @@ const Inspections: React.FC = () => {
       setSelectedInspection(inspection);
       setSelectedCompanyId(inspection.companyId);
       setSelectedWorkId(inspection.workId);
+      setInspectionDate(inspection.date);
+      setStatus(inspection.status);
+      setEvidences(inspection.evidences || []);
     } else {
       setSelectedInspection(null);
-      setSelectedCompanyId('');
-      setSelectedWorkId('');
-      setInspectionDate(new Date().toISOString().split('T')[0]);
-      setStatus('conformity');
-      setEvidences([]);
+      // Keep draft values if they exist, otherwise initialize empty
+      const saved = localStorage.getItem('draft_inspection_company_id');
+      if (!saved) {
+        setSelectedCompanyId('');
+        setSelectedWorkId('');
+        setInspectionDate(new Date().toISOString().split('T')[0]);
+        setStatus('conformity');
+        setEvidences([]);
+      }
     }
     setIsModalOpen(true);
   };
@@ -62,6 +182,20 @@ const Inspections: React.FC = () => {
     setSelectedInspection(null);
     setSelectedCompanyId('');
     setSelectedWorkId('');
+    setInspectionDate(new Date().toISOString().split('T')[0]);
+    setStatus('conformity');
+    setEvidences([]);
+    try {
+      localStorage.removeItem('draft_inspection_open');
+      localStorage.removeItem('draft_inspection_selected');
+      localStorage.removeItem('draft_inspection_company_id');
+      localStorage.removeItem('draft_inspection_work_id');
+      localStorage.removeItem('draft_inspection_date');
+      localStorage.removeItem('draft_inspection_status');
+      localStorage.removeItem('draft_inspection_evidences');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleAddEvidence = () => {
@@ -316,7 +450,9 @@ const Inspections: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {!isModalOpen ? (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Vistorias</h1>
           <p className="text-gray-500">Relatórios de conformidade e evidências.</p>
@@ -397,34 +533,37 @@ const Inspections: React.FC = () => {
           </table>
         </div>
       </div>
-
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-gray-900">
+        </>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+            <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
                 {selectedInspection ? 'Detalhes da Vistoria' : 'Nova Vistoria'}
-              </h2>
-              <div className="flex items-center gap-2">
-                {selectedInspection && (
-                  <button 
-                    onClick={() => generatePDF(selectedInspection)}
-                    disabled={isGeneratingPdf}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    <Download size={18} />
-                    {isGeneratingPdf ? 'Gerando...' : 'Gerar PDF'}
-                  </button>
-                )}
-                <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
+              </h1>
+              <p className="text-gray-500 font-medium">
+                {selectedInspection ? 'Relatório de vistoria e evidências.' : 'Insira os dados da nova vistoria abaixo.'}
+              </p>
             </div>
+            
+            {selectedInspection && (
+              <button 
+                onClick={() => generatePDF(selectedInspection)}
+                disabled={isGeneratingPdf}
+                className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl font-semibold hover:bg-brand-hover transition-colors disabled:opacity-50 text-sm shadow-md"
+              >
+                <Download size={16} />
+                {isGeneratingPdf ? 'Gerando...' : 'Gerar PDF'}
+              </button>
+            )}
+          </div>
 
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {selectedInspection ? (
-              <div className="p-8">
+              <div className="p-6 md:p-8">
                 <InspectionReport inspection={selectedInspection} />
               </div>
             ) : (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, X, User, HardHat, FileText, CheckCircle2, AlertCircle, Calendar, Camera, Trash2, Download, Building2, Edit2, Briefcase } from 'lucide-react';
+import { Search, Plus, X, User, HardHat, FileText, CheckCircle2, AlertCircle, Calendar, Camera, Trash2, Download, Building2, Edit2, Briefcase, ArrowLeft } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Employee, EmployeeDocument } from '../types';
 import { cn } from '../lib/utils';
@@ -22,12 +22,70 @@ const getStatusColor = (dueDate: string) => {
 const Employees: React.FC = () => {
   const { employees, works, companies, addEmployee, updateEmployee, deleteEmployee } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem('draft_employee_open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(() => {
+    try {
+      const saved = localStorage.getItem('draft_employee_selected');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   
   // Form State
-  const [formDocuments, setFormDocuments] = useState<EmployeeDocument[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [formDocuments, setFormDocuments] = useState<EmployeeDocument[]>(() => {
+    try {
+      const saved = localStorage.getItem('draft_employee_documents');
+      return saved ? JSON.parse(saved) : ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' }));
+    } catch {
+      return ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' }));
+    }
+  });
+
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('draft_employee_company_id') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [formValues, setFormValues] = useState(() => {
+    try {
+      const saved = localStorage.getItem('draft_employee_values');
+      return saved ? JSON.parse(saved) : {
+        name: '',
+        cpf: '',
+        role: '',
+        workId: '',
+        status: 'active',
+        contractorName: '',
+        serviceOrder: 'Conforme',
+        registrationRecord: 'Conforme',
+        employmentContract: 'Conforme'
+      };
+    } catch {
+      return {
+        name: '',
+        cpf: '',
+        role: '',
+        workId: '',
+        status: 'active',
+        contractorName: '',
+        serviceOrder: 'Conforme',
+        registrationRecord: 'Conforme',
+        employmentContract: 'Conforme'
+      };
+    }
+  });
 
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Tem certeza que deseja excluir o funcionário "${name}"?`)) {
@@ -35,20 +93,50 @@ const Employees: React.FC = () => {
     }
   };
 
+  // Synchronize modal state, selected employee and form state to localStorage
   useEffect(() => {
-    if (selectedEmployee) {
-      setSelectedCompanyId(selectedEmployee.companyId || '');
-      // Ensure all required types exist in the form state
-      const existingDocs = selectedEmployee.documents || [];
-      const completeDocs = ALL_DOCUMENT_TYPES.map(type => {
-        const found = existingDocs.find(d => d.type === type);
-        return found || { type, dueDate: '', fileName: '', fileUrl: '' };
-      });
-      setFormDocuments(completeDocs);
-    } else {
-      setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' })));
+    try {
+      localStorage.setItem('draft_employee_open', String(isModalOpen));
+    } catch (e) {
+      console.error(e);
     }
-  }, [selectedEmployee, isModalOpen]);
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    try {
+      if (selectedEmployee) {
+        localStorage.setItem('draft_employee_selected', JSON.stringify(selectedEmployee));
+      } else {
+        localStorage.removeItem('draft_employee_selected');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedEmployee]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_employee_values', JSON.stringify(formValues));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [formValues]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_employee_company_id', selectedCompanyId);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_employee_documents', JSON.stringify(formDocuments));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [formDocuments]);
 
   const filteredEmployees = employees.filter(e => 
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,8 +146,47 @@ const Employees: React.FC = () => {
   );
 
   const handleOpenModal = (employee?: Employee) => {
-    setSelectedEmployee(employee || null);
-    setSelectedCompanyId(employee?.companyId || '');
+    if (employee) {
+      setSelectedEmployee(employee);
+      setSelectedCompanyId(employee.companyId || '');
+      // Ensure all required types exist in the form state
+      const existingDocs = employee.documents || [];
+      const completeDocs = ALL_DOCUMENT_TYPES.map(type => {
+        const found = existingDocs.find(d => d.type === type);
+        return found || { type, dueDate: '', fileName: '', fileUrl: '' };
+      });
+      setFormDocuments(completeDocs);
+      setFormValues({
+        name: employee.name || '',
+        cpf: employee.cpf || '',
+        role: employee.role || '',
+        workId: employee.workId || '',
+        status: employee.status || 'active',
+        contractorName: employee.contractorName || '',
+        serviceOrder: employee.serviceOrder || 'Conforme',
+        registrationRecord: employee.registrationRecord || 'Conforme',
+        employmentContract: employee.employmentContract || 'Conforme'
+      });
+    } else {
+      setSelectedEmployee(null);
+      setSelectedCompanyId('');
+      setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' })));
+      // Reset form values ONLY if there is no draft
+      const saved = localStorage.getItem('draft_employee_values');
+      if (!saved) {
+        setFormValues({
+          name: '',
+          cpf: '',
+          role: '',
+          workId: '',
+          status: 'active',
+          contractorName: '',
+          serviceOrder: 'Conforme',
+          registrationRecord: 'Conforme',
+          employmentContract: 'Conforme'
+        });
+      }
+    }
     setIsModalOpen(true);
   };
 
@@ -67,6 +194,27 @@ const Employees: React.FC = () => {
     setIsModalOpen(false);
     setSelectedEmployee(null);
     setSelectedCompanyId('');
+    setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' })));
+    setFormValues({
+      name: '',
+      cpf: '',
+      role: '',
+      workId: '',
+      status: 'active',
+      contractorName: '',
+      serviceOrder: 'Conforme',
+      registrationRecord: 'Conforme',
+      employmentContract: 'Conforme'
+    });
+    try {
+      localStorage.removeItem('draft_employee_open');
+      localStorage.removeItem('draft_employee_selected');
+      localStorage.removeItem('draft_employee_values');
+      localStorage.removeItem('draft_employee_company_id');
+      localStorage.removeItem('draft_employee_documents');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleDocumentChange = (type: string, field: keyof EmployeeDocument, value: string) => {
@@ -96,28 +244,27 @@ const Employees: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const companyId = formData.get('companyId') as string;
-    const workId = formData.get('workId') as string;
+    const companyId = selectedCompanyId;
+    const workId = formValues.workId;
     
     const company = companies.find(c => c.id === companyId);
     const work = works.find(w => w.id === workId);
-    const contractorName = formData.get('contractorName') as string;
+    const contractorName = formValues.contractorName;
 
     const data = {
-      name: formData.get('name') as string,
-      cpf: formData.get('cpf') as string,
-      role: formData.get('role') as string,
+      name: formValues.name,
+      cpf: formValues.cpf,
+      role: formValues.role,
       companyId: companyId,
       companyName: company?.name || 'N/A',
       workId: workId,
       workName: work?.name || 'N/A',
-      status: formData.get('status') as 'active' | 'inactive',
+      status: formValues.status as 'active' | 'inactive',
       isContractor: !!contractorName,
       contractorName: contractorName || '',
-      serviceOrder: (formData.get('serviceOrder') as string) || '',
-      registrationRecord: (formData.get('registrationRecord') as string) || '',
-      employmentContract: (formData.get('employmentContract') as string) || '',
+      serviceOrder: formValues.serviceOrder,
+      registrationRecord: formValues.registrationRecord,
+      employmentContract: formValues.employmentContract,
       documents: formDocuments,
     };
 
@@ -140,7 +287,9 @@ const Employees: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {!isModalOpen ? (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Funcionários</h1>
           <p className="text-gray-500">Documentação e alocação de pessoal.</p>
@@ -345,21 +494,23 @@ const Employees: React.FC = () => {
           </table>
         </div>
       </div>
-
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-gray-900">
+        </>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+            <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
                 {selectedEmployee ? 'Editar Funcionário' : 'Cadastrar Novo Funcionário'}
-              </h2>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} />
-              </button>
+              </h1>
+              <p className="text-gray-500">Insira os dados do funcionário abaixo para prosseguir.</p>
             </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -368,7 +519,8 @@ const Employees: React.FC = () => {
                   <input 
                     name="name" 
                     required 
-                    defaultValue={selectedEmployee?.name}
+                    value={formValues.name}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -377,7 +529,8 @@ const Employees: React.FC = () => {
                   <input 
                     name="cpf" 
                     required 
-                    defaultValue={selectedEmployee?.cpf}
+                    value={formValues.cpf}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, cpf: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -388,7 +541,8 @@ const Employees: React.FC = () => {
                   <input 
                     name="role" 
                     required 
-                    defaultValue={selectedEmployee?.role}
+                    value={formValues.role}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, role: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -418,7 +572,8 @@ const Employees: React.FC = () => {
                   <select 
                     name="workId" 
                     required 
-                    defaultValue={selectedEmployee?.workId}
+                    value={formValues.workId}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, workId: e.target.value }))}
                     disabled={!selectedCompanyId}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white disabled:bg-gray-50 disabled:text-gray-400"
                   >
@@ -436,7 +591,8 @@ const Employees: React.FC = () => {
                   <select 
                     name="status" 
                     required 
-                    defaultValue={selectedEmployee?.status || 'active'}
+                    value={formValues.status}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, status: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white"
                   >
                     <option value="active">Ativo</option>
@@ -451,7 +607,8 @@ const Employees: React.FC = () => {
                     </label>
                     <input 
                       name="contractorName" 
-                      defaultValue={selectedEmployee?.contractorName}
+                      value={formValues.contractorName}
+                      onChange={(e) => setFormValues(prev => ({ ...prev, contractorName: e.target.value }))}
                       placeholder="Deixe em branco se for funcionário próprio"
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white"
                     />
@@ -538,7 +695,8 @@ const Employees: React.FC = () => {
                       </label>
                       <select 
                         name="serviceOrder" 
-                        defaultValue={selectedEmployee?.serviceOrder || 'Conforme'}
+                        value={formValues.serviceOrder}
+                        onChange={(e) => setFormValues(prev => ({ ...prev, serviceOrder: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
                       >
                         <option value="Conforme">Conforme</option>
@@ -595,7 +753,8 @@ const Employees: React.FC = () => {
                       </label>
                       <select 
                         name="registrationRecord" 
-                        defaultValue={selectedEmployee?.registrationRecord || 'Conforme'}
+                        value={formValues.registrationRecord}
+                        onChange={(e) => setFormValues(prev => ({ ...prev, registrationRecord: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
                       >
                         <option value="Conforme">Conforme</option>
@@ -652,7 +811,8 @@ const Employees: React.FC = () => {
                       </label>
                       <select 
                         name="employmentContract" 
-                        defaultValue={selectedEmployee?.employmentContract || 'Conforme'}
+                        value={formValues.employmentContract}
+                        onChange={(e) => setFormValues(prev => ({ ...prev, employmentContract: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
                       >
                         <option value="Conforme">Conforme</option>

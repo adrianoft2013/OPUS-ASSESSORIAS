@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Plus, X, Building2, Phone, Mail, MapPin, Calendar, User, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, X, Building2, Phone, Mail, MapPin, Calendar, User, Edit2, Trash2, ArrowLeft } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Company } from '../types';
 import { cn } from '../lib/utils';
@@ -7,12 +7,85 @@ import { cn } from '../lib/utils';
 const Companies: React.FC = () => {
   const { companies, addCompany, updateCompany, deleteCompany } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem('draft_company_open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(() => {
+    try {
+      const saved = localStorage.getItem('draft_company_selected');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [formValues, setFormValues] = useState(() => {
+    try {
+      const saved = localStorage.getItem('draft_company_values');
+      return saved ? JSON.parse(saved) : {
+        name: '',
+        cnpj: '',
+        address: '',
+        phone: '',
+        contactName: '',
+        contactPhone: '',
+        contactEmail: '',
+        city: '',
+        uf: ''
+      };
+    } catch {
+      return {
+        name: '',
+        cnpj: '',
+        address: '',
+        phone: '',
+        contactName: '',
+        contactPhone: '',
+        contactEmail: '',
+        city: '',
+        uf: ''
+      };
+    }
+  });
 
   // States for viewing company detail sheet ("ficha")
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [companyToView, setCompanyToView] = useState<Company | null>(null);
+
+  // Synchronize modal state, selected company and form values to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_company_open', String(isModalOpen));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    try {
+      if (selectedCompany) {
+        localStorage.setItem('draft_company_selected', JSON.stringify(selectedCompany));
+      } else {
+        localStorage.removeItem('draft_company_selected');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedCompany]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_company_values', JSON.stringify(formValues));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [formValues]);
 
   const filteredCompanies = companies.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -20,13 +93,61 @@ const Companies: React.FC = () => {
   );
 
   const handleOpenModal = (company?: Company) => {
-    setSelectedCompany(company || null);
+    if (company) {
+      setSelectedCompany(company);
+      setFormValues({
+        name: company.name || '',
+        cnpj: company.cnpj || '',
+        address: company.address || '',
+        phone: company.phone || '',
+        contactName: company.contactName || '',
+        contactPhone: company.contactPhone || '',
+        contactEmail: company.contactEmail || '',
+        city: company.city || '',
+        uf: company.uf || ''
+      });
+    } else {
+      setSelectedCompany(null);
+      // Keep draft values if they exist, otherwise initialize empty
+      const saved = localStorage.getItem('draft_company_values');
+      if (!saved) {
+        setFormValues({
+          name: '',
+          cnpj: '',
+          address: '',
+          phone: '',
+          contactName: '',
+          contactPhone: '',
+          contactEmail: '',
+          city: '',
+          uf: ''
+        });
+      }
+    }
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedCompany(null);
+    try {
+      localStorage.removeItem('draft_company_values');
+      localStorage.removeItem('draft_company_open');
+      localStorage.removeItem('draft_company_selected');
+    } catch (e) {
+      console.error(e);
+    }
+    setFormValues({
+      name: '',
+      cnpj: '',
+      address: '',
+      phone: '',
+      contactName: '',
+      contactPhone: '',
+      contactEmail: '',
+      city: '',
+      uf: ''
+    });
   };
 
   const handleOpenDetail = (company: Company) => {
@@ -55,18 +176,7 @@ const Companies: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get('name') as string,
-      cnpj: formData.get('cnpj') as string,
-      address: formData.get('address') as string,
-      phone: formData.get('phone') as string,
-      contactName: formData.get('contactName') as string,
-      contactPhone: formData.get('contactPhone') as string,
-      contactEmail: formData.get('contactEmail') as string,
-      city: formData.get('city') as string,
-      uf: formData.get('uf') as string,
-    };
+    const data = { ...formValues };
 
     try {
       if (selectedCompany) {
@@ -83,7 +193,9 @@ const Companies: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {!isModalOpen && !isDetailOpen ? (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Construtoras</h1>
           <p className="text-gray-500">Gerencie as construtoras parceiras.</p>
@@ -171,21 +283,23 @@ const Companies: React.FC = () => {
           </table>
         </div>
       </div>
-
-      {/* Modal - Cadastro/Edição */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-gray-900">
+        </>
+      ) : isModalOpen ? (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+            <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
                 {selectedCompany ? 'Editar Construtora' : 'Cadastrar Nova Construtora'}
-              </h2>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} />
-              </button>
+              </h1>
+              <p className="text-gray-500">Insira os dados da construtora abaixo.</p>
             </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -194,7 +308,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="name" 
                     required 
-                    defaultValue={selectedCompany?.name}
+                    value={formValues.name}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -203,7 +318,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="cnpj" 
                     required 
-                    defaultValue={selectedCompany?.cnpj}
+                    value={formValues.cnpj}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, cnpj: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -214,7 +330,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="address" 
                     required 
-                    defaultValue={selectedCompany?.address}
+                    value={formValues.address}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, address: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -225,7 +342,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="phone" 
                     required 
-                    defaultValue={selectedCompany?.phone}
+                    value={formValues.phone}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -236,7 +354,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="contactName" 
                     required 
-                    defaultValue={selectedCompany?.contactName}
+                    value={formValues.contactName}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, contactName: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -245,7 +364,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="contactPhone" 
                     required 
-                    defaultValue={selectedCompany?.contactPhone}
+                    value={formValues.contactPhone}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, contactPhone: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -257,7 +377,8 @@ const Companies: React.FC = () => {
                     name="contactEmail" 
                     type="email" 
                     required 
-                    defaultValue={selectedCompany?.contactEmail}
+                    value={formValues.contactEmail}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, contactEmail: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -266,7 +387,8 @@ const Companies: React.FC = () => {
                   <input 
                     name="city" 
                     required 
-                    defaultValue={selectedCompany?.city}
+                    value={formValues.city}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, city: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none"
                   />
                 </div>
@@ -276,7 +398,8 @@ const Companies: React.FC = () => {
                     name="uf" 
                     required 
                     maxLength={2}
-                    defaultValue={selectedCompany?.uf}
+                    value={formValues.uf}
+                    onChange={(e) => setFormValues(prev => ({ ...prev, uf: e.target.value.toUpperCase() }))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none uppercase"
                   />
                 </div>
@@ -300,31 +423,19 @@ const Companies: React.FC = () => {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Ficha da Construtora (Visualização de Detalhes) */}
-      {isDetailOpen && companyToView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-6 bg-gradient-to-r from-brand/5 to-transparent border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-brand/10 text-brand rounded-xl">
-                  <Building2 size={24} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Ficha da Construtora</h2>
-                  <p className="text-xs text-gray-500">Detalhes completos da parceira</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleCloseDetail} 
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={20} />
-              </button>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+            <button onClick={handleCloseDetail} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Ficha da Construtora</h1>
+              <p className="text-gray-500">Detalhes completos da parceira</p>
             </div>
+          </div>
 
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {/* Body */}
             <div className="p-6 space-y-6">
               {/* Informações Básicas */}

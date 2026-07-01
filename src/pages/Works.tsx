@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, HardHat, X, Building2, User, Phone, MapPin, Calendar, Save, Trash2, Edit2 } from 'lucide-react';
+import { Search, Plus, HardHat, X, Building2, User, Phone, MapPin, Calendar, Save, Trash2, Edit2, ArrowLeft } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Work } from '../types';
 import { cn } from '../lib/utils';
@@ -7,30 +7,92 @@ import { cn } from '../lib/utils';
 const Works: React.FC = () => {
   const { works, companies, addWork, updateWork, deleteWork } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedWork, setSelectedWork] = useState<Work | null>(null);
-  const [formData, setFormData] = useState<Partial<Work>>({});
+  
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem('draft_work_open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [selectedWork, setSelectedWork] = useState<Work | null>(() => {
+    try {
+      const saved = localStorage.getItem('draft_work_selected');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [formData, setFormData] = useState<Partial<Work>>(() => {
+    try {
+      const saved = localStorage.getItem('draft_work_values');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   // States for viewing work detail sheet ("ficha")
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [workToView, setWorkToView] = useState<Work | null>(null);
 
+  // Synchronize modal state, selected work and form data to localStorage
   useEffect(() => {
-    if (selectedWork) {
-      setFormData(selectedWork);
-    } else {
-      setFormData({});
+    try {
+      localStorage.setItem('draft_work_open', String(isModalOpen));
+    } catch (e) {
+      console.error(e);
     }
-  }, [selectedWork, isModalOpen]);
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    try {
+      if (selectedWork) {
+        localStorage.setItem('draft_work_selected', JSON.stringify(selectedWork));
+      } else {
+        localStorage.removeItem('draft_work_selected');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedWork]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_work_values', JSON.stringify(formData));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [formData]);
 
   const handleOpenModal = (work?: Work) => {
-    setSelectedWork(work || null);
+    if (work) {
+      setSelectedWork(work);
+      setFormData(work);
+    } else {
+      setSelectedWork(null);
+      // Keep draft values if they exist, otherwise initialize empty
+      const saved = localStorage.getItem('draft_work_values');
+      if (!saved) {
+        setFormData({});
+      }
+    }
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedWork(null);
+    setFormData({});
+    try {
+      localStorage.removeItem('draft_work_open');
+      localStorage.removeItem('draft_work_selected');
+      localStorage.removeItem('draft_work_values');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleOpenDetail = (work: Work) => {
@@ -99,7 +161,9 @@ const Works: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {!isModalOpen && !isDetailOpen ? (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Obras</h1>
           <p className="text-gray-500">Controle e acompanhamento de canteiros.</p>
@@ -187,20 +251,23 @@ const Works: React.FC = () => {
           </table>
         </div>
       </div>
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-gray-900">
-                {selectedWork ? 'Editar Obra' : 'Nova Obra'}
-              </h2>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} />
-              </button>
+        </>
+      ) : isModalOpen ? (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+            <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {selectedWork ? 'Editar Obra' : 'Cadastrar Nova Obra'}
+              </h1>
+              <p className="text-gray-500">Insira os dados da obra abaixo.</p>
             </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="p-8 space-y-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-bold text-gray-700 flex items-center gap-2 uppercase tracking-wider">
@@ -327,32 +394,19 @@ const Works: React.FC = () => {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Ficha da Obra (Visualização de Detalhes) */}
-      {isDetailOpen && workToView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-6 bg-gradient-to-r from-brand/5 to-transparent border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-brand/10 text-brand rounded-xl">
-                  <HardHat size={24} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Ficha da Obra</h2>
-                  <p className="text-xs text-gray-500">Detalhes completos do canteiro</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleCloseDetail} 
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={20} />
-              </button>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+            <button onClick={handleCloseDetail} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Ficha da Obra</h1>
+              <p className="text-gray-500">Detalhes completos do canteiro</p>
             </div>
+          </div>
 
-            {/* Body */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="p-6 space-y-6">
               {/* Informações Básicas */}
               <div>
