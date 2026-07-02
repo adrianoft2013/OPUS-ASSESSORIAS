@@ -555,7 +555,9 @@ const Employees: React.FC = () => {
                             "px-2 py-0.5 rounded text-[10px] font-bold uppercase border",
                             employee.registrationRecord === 'Conforme'
                               ? "bg-green-50 text-green-700 border-green-200"
-                              : "bg-red-50 text-red-700 border-red-200"
+                              : employee.registrationRecord === 'N/A'
+                                ? "bg-gray-50 text-gray-500 border-gray-200"
+                                : "bg-red-50 text-red-700 border-red-200"
                           )}>
                             {employee.registrationRecord}
                           </span>
@@ -586,7 +588,9 @@ const Employees: React.FC = () => {
                             "px-2 py-0.5 rounded text-[10px] font-bold uppercase border",
                             employee.employmentContract === 'Conforme'
                               ? "bg-green-50 text-green-700 border-green-200"
-                              : "bg-red-50 text-red-700 border-red-200"
+                              : employee.employmentContract === 'N/A'
+                                ? "bg-gray-50 text-gray-500 border-gray-200"
+                                : "bg-red-50 text-red-700 border-red-200"
                           )}>
                             {employee.employmentContract}
                           </span>
@@ -905,6 +909,7 @@ const Employees: React.FC = () => {
                       >
                         <option value="Conforme">Conforme</option>
                         <option value="Não Conforme">Não Conforme</option>
+                        <option value="N/A">N/A</option>
                       </select>
                     </div>
 
@@ -963,6 +968,7 @@ const Employees: React.FC = () => {
                       >
                         <option value="Conforme">Conforme</option>
                         <option value="Não Conforme">Não Conforme</option>
+                        <option value="N/A">N/A</option>
                       </select>
                     </div>
 
