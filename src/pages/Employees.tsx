@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, X, User, HardHat, FileText, CheckCircle2, AlertCircle, Calendar, Camera, Trash2, Download, Building2, Edit2, Briefcase, ArrowLeft } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useApp } from '../AppContext';
 import { Employee, EmployeeDocument } from '../types';
 import { cn } from '../lib/utils';
@@ -20,8 +22,9 @@ const getStatusColor = (dueDate: string) => {
 };
 
 const Employees: React.FC = () => {
-  const { employees, works, companies, addEmployee, updateEmployee, deleteEmployee } = useApp();
+  const { employees, works, companies, addEmployee, updateEmployee, deleteEmployee, companyData } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string, name: string } | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(() => {
     try {
@@ -88,9 +91,7 @@ const Employees: React.FC = () => {
   });
 
   const handleDelete = (id: string, name: string) => {
-    if (confirm(`Tem certeza que deseja excluir o funcionário "${name}"?`)) {
-      deleteEmployee(id);
-    }
+    setEmployeeToDelete({ id, name });
   };
 
   // Synchronize modal state, selected employee and form state to localStorage
@@ -285,6 +286,143 @@ const Employees: React.FC = () => {
   const registrationRecordDoc = formDocuments.find(d => d.type === 'Ficha de Registro') || { type: 'Ficha de Registro', dueDate: '', fileName: '', fileUrl: '' };
   const employmentContractDoc = formDocuments.find(d => d.type === 'Contrato de Trabalho') || { type: 'Contrato de Trabalho', dueDate: '', fileName: '', fileUrl: '' };
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const getDocStatusText = (dueDate: string) => {
+      if (!dueDate) return '---';
+      const today = new Date();
+      const expiration = new Date(dueDate);
+      const diffTime = expiration.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const dateStr = expiration.toLocaleDateString('pt-BR');
+      if (diffDays < 0) return `${dateStr} (Vencido)`;
+      if (diffDays <= 30) return `${dateStr} (A vencer)`;
+      return dateStr;
+    };
+
+    // Draw Blue Top Bar
+    doc.setFillColor(37, 99, 235);
+    doc.rect(14, 8, 269, 3, 'F');
+
+    // Title
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(33, 37, 41);
+    doc.text('RELATÓRIO DE FUNCIONÁRIOS', 14, 18);
+
+    // Subtitle / Meta
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(108, 117, 125);
+    
+    let metaText = `Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`;
+    if (companyData?.name) {
+      metaText += ` | Empresa: ${companyData.name}`;
+    }
+    doc.text(metaText, 14, 24);
+
+    // Filter status text
+    if (searchTerm) {
+      doc.text(`Filtro de busca: "${searchTerm}"`, 14, 29);
+    }
+
+    const startY = searchTerm ? 34 : 29;
+
+    autoTable(doc, {
+      startY: startY,
+      head: [[
+        'Funcionário',
+        'Obra / Construtora',
+        'Terceirizada',
+        'EPI',
+        'ASO',
+        'NR06',
+        'NR10',
+        'NR12',
+        'NR18',
+        'NR35',
+        'O.S.',
+        'Reg.',
+        'Contr.'
+      ]],
+      body: filteredEmployees.map(emp => {
+        return [
+          `${emp.name}\nCPF: ${emp.cpf}\n${emp.role}`,
+          `${emp.workName}\n${emp.companyName}`,
+          emp.contractorName || 'Próprio',
+          getDocStatusText(emp.documents?.find(d => d.type === 'EPI')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'ASO')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR06')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR10')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR12')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR18')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR35')?.dueDate || ''),
+          emp.serviceOrder || '---',
+          emp.registrationRecord || '---',
+          emp.employmentContract || '---'
+        ];
+      }),
+      theme: 'striped',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontSize: 7.5,
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle'
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: [51, 65, 85],
+        valign: 'middle'
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', halign: 'left', minCellWidth: 28 },
+        1: { halign: 'left', minCellWidth: 28 },
+        2: { halign: 'center', minCellWidth: 18 },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+        6: { halign: 'center' },
+        7: { halign: 'center' },
+        8: { halign: 'center' },
+        9: { halign: 'center' },
+        10: { halign: 'center' },
+        11: { halign: 'center' },
+        12: { halign: 'center' }
+      },
+      didParseCell: (data: any) => {
+        if (data.section === 'body') {
+          const text = data.cell.text[0] || '';
+          if (text.includes('(Vencido)')) {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (text.includes('(A vencer)')) {
+            data.cell.styles.textColor = [217, 119, 6];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (text === 'Não Conforme') {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (text === 'Conforme') {
+            data.cell.styles.textColor = [22, 163, 74];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      },
+      styles: {
+        overflow: 'linebreak',
+        cellPadding: 1.5
+      }
+    });
+
+    doc.save(`Relatorio_Funcionarios_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <div className="space-y-8">
       {!isModalOpen ? (
@@ -305,17 +443,25 @@ const Employees: React.FC = () => {
 
       {/* Search and List */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
-          <div className="relative max-w-md">
+        <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative max-w-md flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
             <input 
               type="text" 
               placeholder="Buscar por nome, CPF ou obra..." 
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center justify-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm cursor-pointer whitespace-nowrap self-start sm:self-auto"
+            title="Exportar Relatório em formato PDF (Paisagem)"
+          >
+            <Download size={18} className="text-gray-500" />
+            Exportar Relatórios
+          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -880,6 +1026,41 @@ const Employees: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {employeeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-xl max-w-md w-full overflow-hidden p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="p-3 bg-red-50 rounded-full">
+                <AlertCircle size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Confirmar Exclusão</h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+              Tem certeza que deseja excluir o funcionário <strong className="text-gray-900">{employeeToDelete.name}</strong>? Esta ação é irreversível e removerá todos os dados do funcionário do sistema.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEmployeeToDelete(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteEmployee(employeeToDelete.id);
+                  setEmployeeToDelete(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
+              >
+                Sim, Excluir
+              </button>
+            </div>
           </div>
         </div>
       )}
