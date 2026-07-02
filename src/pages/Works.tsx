@@ -60,11 +60,14 @@ const Works: React.FC = () => {
   }, [selectedWork]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_work_values', JSON.stringify(formData));
-    } catch (e) {
-      console.error(e);
-    }
+    const handler = setTimeout(() => {
+      try {
+        localStorage.setItem('draft_work_values', JSON.stringify(formData));
+      } catch (e) {
+        console.error(e);
+      }
+    }, 500);
+    return () => clearTimeout(handler);
   }, [formData]);
 
   const handleOpenModal = (work?: Work) => {

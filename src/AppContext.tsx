@@ -54,6 +54,62 @@ const STORAGE_KEYS = {
   USER: 'opus_user'
 };
 
+const cleanForLocalStorage = <T,>(obj: T): T => {
+  if (typeof obj === 'string') {
+    if (obj.length > 1000 && obj.startsWith('data:')) {
+      return '' as unknown as T;
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return obj;
+    let changed = false;
+    const result = obj.map(item => {
+      const cleaned = cleanForLocalStorage(item);
+      if (cleaned !== item) changed = true;
+      return cleaned;
+    });
+    return changed ? result as unknown as T : obj;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: any = {};
+    let changed = false;
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const val = obj[key];
+        if (typeof val === 'string') {
+          if (val.length > 1000 && val.startsWith('data:')) {
+            result[key] = '';
+            changed = true;
+          } else {
+            result[key] = val;
+          }
+        } else if (val === null || typeof val === 'number' || typeof val === 'boolean') {
+          result[key] = val;
+        } else {
+          const cleaned = cleanForLocalStorage(val);
+          result[key] = cleaned;
+          if (cleaned !== val) {
+            changed = true;
+          }
+        }
+      }
+    }
+    return changed ? result as T : obj;
+  }
+  return obj;
+};
+
+const safeLocalStorageSet = (key: string, value: any) => {
+  try {
+    const cleanedValue = cleanForLocalStorage(value);
+    const serialized = typeof cleanedValue === 'string' ? cleanedValue : JSON.stringify(cleanedValue);
+    localStorage.setItem(key, serialized);
+  } catch (error) {
+    console.warn(`Could not save key "${key}" to localStorage:`, error);
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,7 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (session?.user) {
         const u = { id: session.user.id, email: session.user.email || '' };
         setUser(u);
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(u));
+        safeLocalStorageSet(STORAGE_KEYS.USER, u);
         setLoading(true);
         await fetchUserData(session.user.id);
         setLoading(false);
@@ -207,7 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (signUpData.user) {
             const newUser = { id: signUpData.user.id, email: signUpData.user.email || email };
             setUser(newUser);
-            localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+            safeLocalStorageSet(STORAGE_KEYS.USER, newUser);
             await fetchUserData(signUpData.user.id);
             return;
           }
@@ -218,14 +274,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.user) {
         const newUser = { id: data.user.id, email: data.user.email || email };
         setUser(newUser);
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+        safeLocalStorageSet(STORAGE_KEYS.USER, newUser);
         await fetchUserData(data.user.id);
       }
     } else {
       // Fallback local mock login
       const newUser = { id: 'mock-user-id', email };
       setUser(newUser);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+      safeLocalStorageSet(STORAGE_KEYS.USER, newUser);
       loadLocalStorageData();
     }
   };
@@ -241,7 +297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (data.user) {
       const newUser = { id: data.user.id, email: data.user.email || email };
       setUser(newUser);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+      safeLocalStorageSet(STORAGE_KEYS.USER, newUser);
       await fetchUserData(data.user.id);
     }
   };
@@ -265,47 +321,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
-    if (user && user.id !== 'mock-user-id') {
-      const dbCompany = mapCompanyToDB({ ...newCompany, user_id: user.id });
-      const { error } = await supabase.from('companies').insert(dbCompany);
-      if (error) {
-        console.error('Error saving company to Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = [...companies, newCompany];
     setCompanies(updated);
-    localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.COMPANIES, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbCompany = mapCompanyToDB({ ...newCompany, user_id: user.id });
+          const { error } = await supabase.from('companies').insert(dbCompany);
+          if (error) {
+            console.error('Error saving company to Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for addCompany:', err);
+        }
+      })();
+    }
   };
 
   const updateCompany = async (id: string, updatedFields: Partial<Company>) => {
-    if (user && user.id !== 'mock-user-id') {
-      const dbCompany = mapCompanyToDB(updatedFields);
-      const { error } = await supabase.from('companies').update(dbCompany).eq('id', id);
-      if (error) {
-        console.error('Error updating company in Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = companies.map(c => c.id === id ? { ...c, ...updatedFields } : c);
     setCompanies(updated);
-    localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.COMPANIES, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbCompany = mapCompanyToDB(updatedFields);
+          const { error } = await supabase.from('companies').update(dbCompany).eq('id', id);
+          if (error) {
+            console.error('Error updating company in Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for updateCompany:', err);
+        }
+      })();
+    }
   };
 
   const deleteCompany = async (id: string) => {
-    if (user && user.id !== 'mock-user-id') {
-      const { error } = await supabase.from('companies').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting company from Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = companies.filter(c => c.id !== id);
     setCompanies(updated);
-    localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.COMPANIES, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const { error } = await supabase.from('companies').delete().eq('id', id);
+          if (error) {
+            console.error('Error deleting company from Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for deleteCompany:', err);
+        }
+      })();
+    }
   };
 
   const addWork = async (work: Omit<Work, 'id' | 'createdAt'>) => {
@@ -316,47 +387,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
-    if (user && user.id !== 'mock-user-id') {
-      const dbWork = mapWorkToDB({ ...newWork, user_id: user.id });
-      const { error } = await supabase.from('works').insert(dbWork);
-      if (error) {
-        console.error('Error saving work to Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = [...works, newWork];
     setWorks(updated);
-    localStorage.setItem(STORAGE_KEYS.WORKS, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.WORKS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbWork = mapWorkToDB({ ...newWork, user_id: user.id });
+          const { error } = await supabase.from('works').insert(dbWork);
+          if (error) {
+            console.error('Error saving work to Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for addWork:', err);
+        }
+      })();
+    }
   };
 
   const updateWork = async (id: string, updatedFields: Partial<Work>) => {
-    if (user && user.id !== 'mock-user-id') {
-      const dbWork = mapWorkToDB(updatedFields);
-      const { error } = await supabase.from('works').update(dbWork).eq('id', id);
-      if (error) {
-        console.error('Error updating work in Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = works.map(w => w.id === id ? { ...w, ...updatedFields } : w);
     setWorks(updated);
-    localStorage.setItem(STORAGE_KEYS.WORKS, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.WORKS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbWork = mapWorkToDB(updatedFields);
+          const { error } = await supabase.from('works').update(dbWork).eq('id', id);
+          if (error) {
+            console.error('Error updating work in Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for updateWork:', err);
+        }
+      })();
+    }
   };
 
   const deleteWork = async (id: string) => {
-    if (user && user.id !== 'mock-user-id') {
-      const { error } = await supabase.from('works').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting work from Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = works.filter(w => w.id !== id);
     setWorks(updated);
-    localStorage.setItem(STORAGE_KEYS.WORKS, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.WORKS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const { error } = await supabase.from('works').delete().eq('id', id);
+          if (error) {
+            console.error('Error deleting work from Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for deleteWork:', err);
+        }
+      })();
+    }
   };
 
   const addInspection = async (inspection: Omit<Inspection, 'id'>) => {
@@ -366,18 +452,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newId
     };
 
-    if (user && user.id !== 'mock-user-id') {
-      const dbInspection = mapInspectionToDB({ ...newInspection, user_id: user.id });
-      const { error } = await supabase.from('inspections').insert(dbInspection);
-      if (error) {
-        console.error('Error saving inspection to Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = [...inspections, newInspection];
     setInspections(updated);
-    localStorage.setItem(STORAGE_KEYS.INSPECTIONS, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.INSPECTIONS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbInspection = mapInspectionToDB({ ...newInspection, user_id: user.id });
+          const { error } = await supabase.from('inspections').insert(dbInspection);
+          if (error) {
+            console.error('Error saving inspection to Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for addInspection:', err);
+        }
+      })();
+    }
   };
 
   const addEmployee = async (employee: Omit<Employee, 'id'>) => {
@@ -387,76 +478,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newId
     };
 
-    if (user && user.id !== 'mock-user-id') {
-      const dbEmployee = mapEmployeeToDB({ ...newEmployee, user_id: user.id });
-      const { error } = await supabase.from('employees').insert(dbEmployee);
-      if (error) {
-        console.error('Error saving employee to Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = [...employees, newEmployee];
     setEmployees(updated);
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.EMPLOYEES, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbEmployee = mapEmployeeToDB({ ...newEmployee, user_id: user.id });
+          const { error } = await supabase.from('employees').insert(dbEmployee);
+          if (error) {
+            console.error('Error saving employee to Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for addEmployee:', err);
+        }
+      })();
+    }
   };
 
   const updateEmployee = async (id: string, updatedFields: Partial<Employee>) => {
-    if (user && user.id !== 'mock-user-id') {
-      const dbEmployee = mapEmployeeToDB(updatedFields);
-      const { error } = await supabase.from('employees').update(dbEmployee).eq('id', id);
-      if (error) {
-        console.error('Error updating employee in Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = employees.map(e => e.id === id ? { ...e, ...updatedFields } : e);
     setEmployees(updated);
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.EMPLOYEES, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbEmployee = mapEmployeeToDB(updatedFields);
+          const { error } = await supabase.from('employees').update(dbEmployee).eq('id', id);
+          if (error) {
+            console.error('Error updating employee in Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for updateEmployee:', err);
+        }
+      })();
+    }
   };
 
   const deleteEmployee = async (id: string) => {
-    if (user && user.id !== 'mock-user-id') {
-      const { error } = await supabase.from('employees').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting employee from Supabase:', error);
-        throw error;
-      }
-    }
-
     const updated = employees.filter(e => e.id !== id);
     setEmployees(updated);
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(updated));
+    safeLocalStorageSet(STORAGE_KEYS.EMPLOYEES, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const { error } = await supabase.from('employees').delete().eq('id', id);
+          if (error) {
+            console.error('Error deleting employee from Supabase in background:', error);
+          }
+        } catch (err) {
+          console.error('Failed background sync for deleteEmployee:', err);
+        }
+      })();
+    }
   };
 
   const updateCompanyData = async (data: Partial<CompanyData>) => {
     const updated = { ...companyData, ...data };
+    setCompanyData(updated);
+    safeLocalStorageSet(STORAGE_KEYS.COMPANY_DATA, updated);
 
     if (user && user.id !== 'mock-user-id') {
-      const dbCompData = mapCompanyDataToDB({ ...data, user_id: user.id });
-      // Upsert: Try to get existing record
-      const { data: existing, error: fetchErr } = await supabase
-        .from('company_data')
-        .select('id')
-        .maybeSingle();
+      (async () => {
+        try {
+          const dbCompData = mapCompanyDataToDB({ ...data, user_id: user.id });
+          const { data: existing, error: fetchErr } = await supabase
+            .from('company_data')
+            .select('id')
+            .maybeSingle();
 
-      if (existing) {
-        const { error: updateErr } = await supabase
-          .from('company_data')
-          .update(dbCompData)
-          .eq('id', existing.id);
-        if (updateErr) console.error('Error updating company data:', updateErr);
-      } else {
-        const { error: insertErr } = await supabase
-          .from('company_data')
-          .insert({ ...dbCompData, user_id: user.id });
-        if (insertErr) console.error('Error inserting company data:', insertErr);
-      }
+          if (existing) {
+            const { error: updateErr } = await supabase
+              .from('company_data')
+              .update(dbCompData)
+              .eq('id', existing.id);
+            if (updateErr) console.error('Error updating company data:', updateErr);
+          } else {
+            const { error: insertErr } = await supabase
+              .from('company_data')
+              .insert({ ...dbCompData, user_id: user.id });
+            if (insertErr) console.error('Error inserting company data:', insertErr);
+          }
+        } catch (err) {
+          console.error('Failed background sync for updateCompanyData:', err);
+        }
+      })();
     }
-
-    setCompanyData(updated);
-    localStorage.setItem(STORAGE_KEYS.COMPANY_DATA, JSON.stringify(updated));
   };
 
   return (

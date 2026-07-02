@@ -80,11 +80,14 @@ const Companies: React.FC = () => {
   }, [selectedCompany]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_company_values', JSON.stringify(formValues));
-    } catch (e) {
-      console.error(e);
-    }
+    const handler = setTimeout(() => {
+      try {
+        localStorage.setItem('draft_company_values', JSON.stringify(formValues));
+      } catch (e) {
+        console.error(e);
+      }
+    }, 500);
+    return () => clearTimeout(handler);
   }, [formValues]);
 
   const filteredCompanies = companies.filter(c => 

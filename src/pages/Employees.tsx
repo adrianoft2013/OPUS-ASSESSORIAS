@@ -9,6 +9,62 @@ import { cn } from '../lib/utils';
 const DOCUMENT_TYPES = ['EPI', 'ASO', 'NR06', 'NR10', 'NR12', 'NR18', 'NR35'];
 const ALL_DOCUMENT_TYPES = [...DOCUMENT_TYPES, 'Ordem de Serviço', 'Ficha de Registro', 'Contrato de Trabalho'];
 
+const cleanForLocalStorage = <T,>(obj: T): T => {
+  if (typeof obj === 'string') {
+    if (obj.length > 1000 && obj.startsWith('data:')) {
+      return '' as unknown as T;
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return obj;
+    let changed = false;
+    const result = obj.map(item => {
+      const cleaned = cleanForLocalStorage(item);
+      if (cleaned !== item) changed = true;
+      return cleaned;
+    });
+    return changed ? result as unknown as T : obj;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: any = {};
+    let changed = false;
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const val = obj[key];
+        if (typeof val === 'string') {
+          if (val.length > 1000 && val.startsWith('data:')) {
+            result[key] = '';
+            changed = true;
+          } else {
+            result[key] = val;
+          }
+        } else if (val === null || typeof val === 'number' || typeof val === 'boolean') {
+          result[key] = val;
+        } else {
+          const cleaned = cleanForLocalStorage(val);
+          result[key] = cleaned;
+          if (cleaned !== val) {
+            changed = true;
+          }
+        }
+      }
+    }
+    return changed ? result as T : obj;
+  }
+  return obj;
+};
+
+const safeLocalStorageSet = (key: string, value: any) => {
+  try {
+    const cleanedValue = cleanForLocalStorage(value);
+    const serialized = typeof cleanedValue === 'string' ? cleanedValue : JSON.stringify(cleanedValue);
+    localStorage.setItem(key, serialized);
+  } catch (error) {
+    console.warn(`Could not save key "${key}" to localStorage:`, error);
+  }
+};
+
 const getStatusColor = (dueDate: string) => {
   if (!dueDate) return 'text-gray-400';
   const today = new Date();
@@ -47,9 +103,9 @@ const Employees: React.FC = () => {
   const [formDocuments, setFormDocuments] = useState<EmployeeDocument[]>(() => {
     try {
       const saved = localStorage.getItem('draft_employee_documents');
-      return saved ? JSON.parse(saved) : ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' }));
+      return saved ? JSON.parse(saved) : ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '', status: 'Conforme' }));
     } catch {
-      return ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' }));
+      return ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '', status: 'Conforme' }));
     }
   });
 
@@ -96,47 +152,37 @@ const Employees: React.FC = () => {
 
   // Synchronize modal state, selected employee and form state to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_employee_open', String(isModalOpen));
-    } catch (e) {
-      console.error(e);
-    }
+    safeLocalStorageSet('draft_employee_open', String(isModalOpen));
   }, [isModalOpen]);
 
   useEffect(() => {
-    try {
-      if (selectedEmployee) {
-        localStorage.setItem('draft_employee_selected', JSON.stringify(selectedEmployee));
-      } else {
+    if (selectedEmployee) {
+      safeLocalStorageSet('draft_employee_selected', selectedEmployee);
+    } else {
+      try {
         localStorage.removeItem('draft_employee_selected');
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
   }, [selectedEmployee]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_employee_values', JSON.stringify(formValues));
-    } catch (e) {
-      console.error(e);
-    }
+    const handler = setTimeout(() => {
+      safeLocalStorageSet('draft_employee_values', formValues);
+    }, 500);
+    return () => clearTimeout(handler);
   }, [formValues]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_employee_company_id', selectedCompanyId);
-    } catch (e) {
-      console.error(e);
-    }
+    safeLocalStorageSet('draft_employee_company_id', selectedCompanyId);
   }, [selectedCompanyId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_employee_documents', JSON.stringify(formDocuments));
-    } catch (e) {
-      console.error(e);
-    }
+    const handler = setTimeout(() => {
+      safeLocalStorageSet('draft_employee_documents', formDocuments);
+    }, 500);
+    return () => clearTimeout(handler);
   }, [formDocuments]);
 
   const filteredEmployees = employees.filter(e => 
@@ -154,7 +200,7 @@ const Employees: React.FC = () => {
       const existingDocs = employee.documents || [];
       const completeDocs = ALL_DOCUMENT_TYPES.map(type => {
         const found = existingDocs.find(d => d.type === type);
-        return found || { type, dueDate: '', fileName: '', fileUrl: '' };
+        return found ? { ...found, status: found.status || 'Conforme' } : { type, dueDate: '', fileName: '', fileUrl: '', status: 'Conforme' };
       });
       setFormDocuments(completeDocs);
       setFormValues({
@@ -171,7 +217,7 @@ const Employees: React.FC = () => {
     } else {
       setSelectedEmployee(null);
       setSelectedCompanyId('');
-      setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' })));
+      setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '', status: 'Conforme' })));
       // Reset form values ONLY if there is no draft
       const saved = localStorage.getItem('draft_employee_values');
       if (!saved) {
@@ -195,7 +241,7 @@ const Employees: React.FC = () => {
     setIsModalOpen(false);
     setSelectedEmployee(null);
     setSelectedCompanyId('');
-    setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '' })));
+    setFormDocuments(ALL_DOCUMENT_TYPES.map(type => ({ type, dueDate: '', fileName: '', fileUrl: '', status: 'Conforme' })));
     setFormValues({
       name: '',
       cpf: '',
@@ -293,10 +339,16 @@ const Employees: React.FC = () => {
       format: 'a4'
     });
 
-    const getDocStatusText = (dueDate: string) => {
-      if (!dueDate) return '---';
+    const getDocStatusText = (doc: EmployeeDocument | undefined) => {
+      if (!doc) return '---';
+      const status = doc.status || (doc.dueDate ? 'Conforme' : '');
+      if (status === 'Não se aplica') return 'N/A';
+      if (status === 'Não conforme') return 'Não Conforme';
+      
+      if (!doc.dueDate) return status === 'Conforme' ? 'Conforme' : '---';
+      
       const today = new Date();
-      const expiration = new Date(dueDate);
+      const expiration = new Date(doc.dueDate);
       const diffTime = expiration.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       const dateStr = expiration.toLocaleDateString('pt-BR');
@@ -355,13 +407,13 @@ const Employees: React.FC = () => {
           `${emp.name}\nCPF: ${emp.cpf}\n${emp.role}`,
           `${emp.workName}\n${emp.companyName}`,
           emp.contractorName || 'Próprio',
-          getDocStatusText(emp.documents?.find(d => d.type === 'EPI')?.dueDate || ''),
-          getDocStatusText(emp.documents?.find(d => d.type === 'ASO')?.dueDate || ''),
-          getDocStatusText(emp.documents?.find(d => d.type === 'NR06')?.dueDate || ''),
-          getDocStatusText(emp.documents?.find(d => d.type === 'NR10')?.dueDate || ''),
-          getDocStatusText(emp.documents?.find(d => d.type === 'NR12')?.dueDate || ''),
-          getDocStatusText(emp.documents?.find(d => d.type === 'NR18')?.dueDate || ''),
-          getDocStatusText(emp.documents?.find(d => d.type === 'NR35')?.dueDate || ''),
+          getDocStatusText(emp.documents?.find(d => d.type === 'EPI')),
+          getDocStatusText(emp.documents?.find(d => d.type === 'ASO')),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR06')),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR10')),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR12')),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR18')),
+          getDocStatusText(emp.documents?.find(d => d.type === 'NR35')),
           emp.serviceOrder || '---',
           emp.registrationRecord || '---',
           emp.employmentContract || '---'
@@ -507,11 +559,40 @@ const Employees: React.FC = () => {
                     </td>
                     {DOCUMENT_TYPES.map(type => {
                       const doc = employee.documents?.find(d => d.type === type);
-                      const isNAType = ['ASO', 'EPI', 'NR06', 'NR10', 'NR12', 'NR18', 'NR35'].includes(type.toUpperCase());
+                      const status = doc?.status || (doc?.dueDate ? 'Conforme' : '');
+                      
+                      let displayValue = '---';
+                      let colorClass = 'text-gray-400';
+                      
+                      if (status === 'Não se aplica') {
+                        displayValue = 'Não se aplica';
+                        colorClass = 'text-gray-500 bg-gray-50 border-gray-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase border';
+                      } else if (status === 'Não conforme') {
+                        displayValue = 'Não conforme';
+                        colorClass = 'text-red-700 bg-red-50 border-red-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase border';
+                      } else if (status === 'Conforme') {
+                        if (doc?.dueDate) {
+                          displayValue = new Date(doc.dueDate).toLocaleDateString('pt-BR');
+                          const color = getStatusColor(doc.dueDate);
+                          if (color.includes('red')) {
+                            colorClass = 'text-red-700 bg-red-50 border-red-200 px-2 py-0.5 rounded text-[10px] font-bold border';
+                          } else if (color.includes('yellow')) {
+                            colorClass = 'text-yellow-700 bg-yellow-50 border-yellow-200 px-2 py-0.5 rounded text-[10px] font-bold border';
+                          } else {
+                            colorClass = 'text-green-700 bg-green-50 border-green-200 px-2 py-0.5 rounded text-[10px] font-bold border';
+                          }
+                        } else {
+                          displayValue = 'Conforme';
+                          colorClass = 'text-green-700 bg-green-50 border-green-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase border';
+                        }
+                      }
+
                       return (
                         <td key={type} className="px-4 py-3 text-center">
-                          <div className={cn("whitespace-nowrap", getStatusColor(doc?.dueDate || ''))}>
-                            {doc?.dueDate ? new Date(doc.dueDate).toLocaleDateString('pt-BR') : (isNAType ? 'N/A' : '---')}
+                          <div className="flex justify-center">
+                            <span className={cn("whitespace-nowrap", colorClass)}>
+                              {displayValue}
+                            </span>
                           </div>
                         </td>
                       );
@@ -774,17 +855,103 @@ const Employees: React.FC = () => {
                 <div className="grid grid-cols-1 gap-4">
                   {formDocuments.filter(doc => DOCUMENT_TYPES.includes(doc.type)).map((doc) => (
                     <div key={doc.type} className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col md:flex-row md:items-end gap-4">
-                      <div className="flex-1 space-y-2">
+                      <div className="flex-[2] space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{doc.type}</label>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 relative">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Option 1: Não conforme */}
+                          <label className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 border rounded-xl cursor-pointer transition-all text-xs font-medium",
+                            doc.status === 'Não conforme'
+                              ? "bg-red-50 border-red-200 text-red-700 font-semibold shadow-sm"
+                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                          )}>
                             <input 
-                              type="date"
-                              value={doc.dueDate}
-                              onChange={(e) => handleDocumentChange(doc.type, 'dueDate', e.target.value)}
-                              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm"
+                              type="radio" 
+                              name={`doc-status-${doc.type}`}
+                              checked={doc.status === 'Não conforme'}
+                              onChange={() => {
+                                handleDocumentChange(doc.type, 'status', 'Não conforme');
+                                handleDocumentChange(doc.type, 'dueDate', '');
+                              }}
+                              className="sr-only"
                             />
+                            <div className={cn(
+                              "w-3.5 h-3.5 rounded-full border flex items-center justify-center",
+                              doc.status === 'Não conforme' ? "border-red-500 bg-red-500" : "border-gray-300"
+                            )}>
+                              {doc.status === 'Não conforme' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            </div>
+                            Não conforme
+                          </label>
+
+                          {/* Option 2: Não se aplica */}
+                          <label className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 border rounded-xl cursor-pointer transition-all text-xs font-medium",
+                            doc.status === 'Não se aplica'
+                              ? "bg-gray-100 border-gray-300 text-gray-700 font-semibold shadow-sm"
+                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                          )}>
+                            <input 
+                              type="radio" 
+                              name={`doc-status-${doc.type}`}
+                              checked={doc.status === 'Não se aplica'}
+                              onChange={() => {
+                                handleDocumentChange(doc.type, 'status', 'Não se aplica');
+                                handleDocumentChange(doc.type, 'dueDate', '');
+                              }}
+                              className="sr-only"
+                            />
+                            <div className={cn(
+                              "w-3.5 h-3.5 rounded-full border flex items-center justify-center",
+                              doc.status === 'Não se aplica' ? "border-gray-500 bg-gray-500" : "border-gray-300"
+                            )}>
+                              {doc.status === 'Não se aplica' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            </div>
+                            Não se aplica
+                          </label>
+
+                          {/* Option 3: Campo Data */}
+                          <div className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 border rounded-xl transition-all text-xs font-medium flex-1 min-w-[180px]",
+                            (doc.status === 'Conforme' || (!doc.status && doc.dueDate))
+                              ? "bg-green-50/50 border-green-200 text-green-700 shadow-sm"
+                              : "bg-white border-gray-200 text-gray-600"
+                          )}>
+                            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+                              <input 
+                                type="radio" 
+                                name={`doc-status-${doc.type}`}
+                                checked={doc.status === 'Conforme' || (!doc.status && doc.dueDate)}
+                                onChange={() => {
+                                  handleDocumentChange(doc.type, 'status', 'Conforme');
+                                }}
+                                className="sr-only"
+                              />
+                              <div className={cn(
+                                "w-3.5 h-3.5 rounded-full border flex items-center justify-center",
+                                (doc.status === 'Conforme' || (!doc.status && doc.dueDate)) ? "border-green-500 bg-green-500" : "border-gray-300"
+                              )}>
+                                {(doc.status === 'Conforme' || (!doc.status && doc.dueDate)) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                              </div>
+                              <span>Data:</span>
+                            </label>
+                            
+                            <div className="relative flex-1">
+                              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={12} />
+                              <input 
+                                type="date"
+                                value={doc.dueDate || ''}
+                                disabled={doc.status !== 'Conforme' && (doc.status === 'Não conforme' || doc.status === 'Não se aplica')}
+                                onChange={(e) => {
+                                  handleDocumentChange(doc.type, 'status', 'Conforme');
+                                  handleDocumentChange(doc.type, 'dueDate', e.target.value);
+                                }}
+                                onClick={() => {
+                                  handleDocumentChange(doc.type, 'status', 'Conforme');
+                                }}
+                                className="w-full pl-7 pr-1 py-0.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-xs text-gray-800 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-100"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>

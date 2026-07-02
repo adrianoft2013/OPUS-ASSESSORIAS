@@ -21,6 +21,62 @@ import { useApp } from '../AppContext';
 import { Inspection, Evidence, Work } from '../types';
 import { cn } from '../lib/utils';
 
+const cleanForLocalStorage = <T,>(obj: T): T => {
+  if (typeof obj === 'string') {
+    if (obj.length > 1000 && obj.startsWith('data:')) {
+      return '' as unknown as T;
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return obj;
+    let changed = false;
+    const result = obj.map(item => {
+      const cleaned = cleanForLocalStorage(item);
+      if (cleaned !== item) changed = true;
+      return cleaned;
+    });
+    return changed ? result as unknown as T : obj;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: any = {};
+    let changed = false;
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const val = obj[key];
+        if (typeof val === 'string') {
+          if (val.length > 1000 && val.startsWith('data:')) {
+            result[key] = '';
+            changed = true;
+          } else {
+            result[key] = val;
+          }
+        } else if (val === null || typeof val === 'number' || typeof val === 'boolean') {
+          result[key] = val;
+        } else {
+          const cleaned = cleanForLocalStorage(val);
+          result[key] = cleaned;
+          if (cleaned !== val) {
+            changed = true;
+          }
+        }
+      }
+    }
+    return changed ? result as T : obj;
+  }
+  return obj;
+};
+
+const safeLocalStorageSet = (key: string, value: any) => {
+  try {
+    const cleanedValue = cleanForLocalStorage(value);
+    const serialized = typeof cleanedValue === 'string' ? cleanedValue : JSON.stringify(cleanedValue);
+    localStorage.setItem(key, serialized);
+  } catch (error) {
+    console.warn(`Could not save key "${key}" to localStorage:`, error);
+  }
+};
+
 const Inspections: React.FC = () => {
   const { inspections, works, companies, addInspection, companyData } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
@@ -142,11 +198,10 @@ const Inspections: React.FC = () => {
   }, [status]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('draft_inspection_evidences', JSON.stringify(evidences));
-    } catch (e) {
-      console.error(e);
-    }
+    const handler = setTimeout(() => {
+      safeLocalStorageSet('draft_inspection_evidences', evidences);
+    }, 500);
+    return () => clearTimeout(handler);
   }, [evidences]);
 
   const filteredInspections = inspections.filter(i => 

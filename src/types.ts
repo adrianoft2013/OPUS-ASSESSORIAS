@@ -49,6 +49,7 @@ export interface EmployeeDocument {
   dueDate: string;
   fileUrl?: string;
   fileName?: string;
+  status?: string;
 }
 
 export interface Employee {

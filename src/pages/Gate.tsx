@@ -65,7 +65,12 @@ const Gate: React.FC = () => {
 
   const hasExpiredDocs = (employee: any) => {
     const today = new Date().toISOString().split('T')[0];
-    return employee.documents?.some((doc: any) => doc.dueDate && doc.dueDate < today);
+    return employee.documents?.some((doc: any) => {
+      const status = doc.status || (doc.dueDate ? 'Conforme' : '');
+      if (status === 'Não se aplica') return false;
+      if (status === 'Não conforme') return true;
+      return doc.dueDate && doc.dueDate < today;
+    });
   };
 
   const handleExportPDF = () => {
