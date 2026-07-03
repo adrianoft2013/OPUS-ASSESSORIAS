@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Search, 
   Plus, 
@@ -79,6 +80,7 @@ const safeLocalStorageSet = (key: string, value: any) => {
 
 const Inspections: React.FC = () => {
   const { inspections, works, companies, addInspection, companyData } = useApp();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(() => {
@@ -97,6 +99,12 @@ const Inspections: React.FC = () => {
       return null;
     }
   });
+
+  // Reset view to list when user clicks Vistorias in sidebar
+  useEffect(() => {
+    setIsModalOpen(false);
+    setSelectedInspection(null);
+  }, [location.key]);
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   

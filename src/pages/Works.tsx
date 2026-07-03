@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Search, Plus, HardHat, X, Building2, User, Phone, MapPin, Calendar, Save, Trash2, Edit2, ArrowLeft } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Work } from '../types';
@@ -6,6 +7,7 @@ import { cn } from '../lib/utils';
 
 const Works: React.FC = () => {
   const { works, companies, addWork, updateWork, deleteWork } = useApp();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(() => {
@@ -37,6 +39,14 @@ const Works: React.FC = () => {
   // States for viewing work detail sheet ("ficha")
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [workToView, setWorkToView] = useState<Work | null>(null);
+
+  // Reset view to list when user clicks Obras in sidebar
+  useEffect(() => {
+    setIsModalOpen(false);
+    setIsDetailOpen(false);
+    setSelectedWork(null);
+    setWorkToView(null);
+  }, [location.key]);
 
   // Synchronize modal state, selected work and form data to localStorage
   useEffect(() => {

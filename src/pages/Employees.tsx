@@ -342,8 +342,8 @@ const Employees: React.FC = () => {
     const getDocStatusText = (doc: EmployeeDocument | undefined) => {
       if (!doc) return '---';
       const status = doc.status || (doc.dueDate ? 'Conforme' : '');
-      if (status === 'Não se aplica') return 'N/A';
-      if (status === 'Não conforme') return 'Não Conforme';
+      if (status === 'Não se aplica' || status === 'N/A') return 'N/A';
+      if (status === 'Não conforme' || status === 'N/C') return 'N/C';
       
       if (!doc.dueDate) return status === 'Conforme' ? 'Conforme' : '---';
       
@@ -564,11 +564,11 @@ const Employees: React.FC = () => {
                       let displayValue = '---';
                       let colorClass = 'text-gray-400';
                       
-                      if (status === 'Não se aplica') {
-                        displayValue = 'Não se aplica';
-                        colorClass = 'text-gray-500 bg-gray-50 border-gray-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase border';
-                      } else if (status === 'Não conforme') {
-                        displayValue = 'Não conforme';
+                      if (status === 'Não se aplica' || status === 'N/A') {
+                        displayValue = 'N/A';
+                        colorClass = 'text-yellow-700 bg-yellow-50 border-yellow-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase border';
+                      } else if (status === 'Não conforme' || status === 'N/C') {
+                        displayValue = 'N/C';
                         colorClass = 'text-red-700 bg-red-50 border-red-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase border';
                       } else if (status === 'Conforme') {
                         if (doc?.dueDate) {
@@ -861,53 +861,53 @@ const Employees: React.FC = () => {
                           {/* Option 1: Não conforme */}
                           <label className={cn(
                             "flex items-center gap-1.5 px-3 py-2 border rounded-xl cursor-pointer transition-all text-xs font-medium",
-                            doc.status === 'Não conforme'
+                            (doc.status === 'Não conforme' || doc.status === 'N/C')
                               ? "bg-red-50 border-red-200 text-red-700 font-semibold shadow-sm"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}>
                             <input 
                               type="radio" 
                               name={`doc-status-${doc.type}`}
-                              checked={doc.status === 'Não conforme'}
+                              checked={doc.status === 'Não conforme' || doc.status === 'N/C'}
                               onChange={() => {
-                                handleDocumentChange(doc.type, 'status', 'Não conforme');
+                                handleDocumentChange(doc.type, 'status', 'N/C');
                                 handleDocumentChange(doc.type, 'dueDate', '');
                               }}
                               className="sr-only"
                             />
                             <div className={cn(
                               "w-3.5 h-3.5 rounded-full border flex items-center justify-center",
-                              doc.status === 'Não conforme' ? "border-red-500 bg-red-500" : "border-gray-300"
+                              (doc.status === 'Não conforme' || doc.status === 'N/C') ? "border-red-500 bg-red-500" : "border-gray-300"
                             )}>
-                              {doc.status === 'Não conforme' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                              {(doc.status === 'Não conforme' || doc.status === 'N/C') && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                             </div>
-                            Não conforme
+                            N/C
                           </label>
 
                           {/* Option 2: Não se aplica */}
                           <label className={cn(
                             "flex items-center gap-1.5 px-3 py-2 border rounded-xl cursor-pointer transition-all text-xs font-medium",
-                            doc.status === 'Não se aplica'
+                            (doc.status === 'Não se aplica' || doc.status === 'N/A')
                               ? "bg-gray-100 border-gray-300 text-gray-700 font-semibold shadow-sm"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}>
                             <input 
                               type="radio" 
                               name={`doc-status-${doc.type}`}
-                              checked={doc.status === 'Não se aplica'}
+                              checked={doc.status === 'Não se aplica' || doc.status === 'N/A'}
                               onChange={() => {
-                                handleDocumentChange(doc.type, 'status', 'Não se aplica');
+                                handleDocumentChange(doc.type, 'status', 'N/A');
                                 handleDocumentChange(doc.type, 'dueDate', '');
                               }}
                               className="sr-only"
                             />
                             <div className={cn(
                               "w-3.5 h-3.5 rounded-full border flex items-center justify-center",
-                              doc.status === 'Não se aplica' ? "border-gray-500 bg-gray-500" : "border-gray-300"
+                              (doc.status === 'Não se aplica' || doc.status === 'N/A') ? "border-gray-500 bg-gray-500" : "border-gray-300"
                             )}>
-                              {doc.status === 'Não se aplica' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                              {(doc.status === 'Não se aplica' || doc.status === 'N/A') && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                             </div>
-                            Não se aplica
+                            N/A
                           </label>
 
                           {/* Option 3: Campo Data */}
@@ -941,7 +941,7 @@ const Employees: React.FC = () => {
                               <input 
                                 type="date"
                                 value={doc.dueDate || ''}
-                                disabled={doc.status !== 'Conforme' && (doc.status === 'Não conforme' || doc.status === 'Não se aplica')}
+                                disabled={doc.status !== 'Conforme' && (doc.status === 'Não conforme' || doc.status === 'N/C' || doc.status === 'Não se aplica' || doc.status === 'N/A')}
                                 onChange={(e) => {
                                   handleDocumentChange(doc.type, 'status', 'Conforme');
                                   handleDocumentChange(doc.type, 'dueDate', e.target.value);

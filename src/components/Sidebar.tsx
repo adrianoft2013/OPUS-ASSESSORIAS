@@ -81,7 +81,7 @@ const Sidebar: React.FC = () => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
-                  key={item.path}
+                  key={item.label}
                   to={item.path}
                   onClick={() => setIsOpen(false)}
                   className={cn(
