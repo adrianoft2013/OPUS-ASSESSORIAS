@@ -15,6 +15,7 @@ import Inspections from './pages/Inspections';
 import Gate from './pages/Gate';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import Subcontractors from './pages/Subcontractors';
 import { Loader2 } from 'lucide-react';
 
 const AppRoutes = () => {
@@ -60,6 +61,7 @@ const AppRoutes = () => {
         <Route path="/construtoras" element={<Companies />} />
         <Route path="/obras" element={<Works />} />
         <Route path="/funcionarios" element={<Employees />} />
+        <Route path="/terceirizadas" element={<Subcontractors />} />
         <Route path="/vistorias" element={<Inspections />} />
         <Route path="/portaria" element={<Gate />} />
         <Route path="/configuracoes" element={<Settings />} />

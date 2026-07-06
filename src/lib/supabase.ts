@@ -58,7 +58,8 @@ export const mapWorkFromDB = (db: any): Work => ({
   responsible: db.responsible || '',
   phone: db.phone || '',
   city: db.city || '',
-  uf: db.uf || ''
+  uf: db.uf || '',
+  subcontractorIds: Array.isArray(db.subcontractor_ids) ? db.subcontractor_ids : []
 });
 
 export const mapWorkToDB = (work: Partial<Work> & { user_id?: string }) => {
@@ -72,6 +73,7 @@ export const mapWorkToDB = (work: Partial<Work> & { user_id?: string }) => {
   if (work.phone !== undefined) db.phone = work.phone;
   if (work.city !== undefined) db.city = work.city;
   if (work.uf !== undefined) db.uf = work.uf;
+  if (work.subcontractorIds !== undefined) db.subcontractor_ids = work.subcontractorIds;
   return db;
 };
 

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Company, Work, Inspection, CompanyData, Employee } from './types';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Company, Work, Inspection, CompanyData, Employee, Subcontractor } from './types';
 import {
   supabase,
   mapCompanyFromDB,
@@ -26,6 +26,7 @@ interface AppContextType {
   works: Work[];
   inspections: Inspection[];
   employees: Employee[];
+  subcontractors: Subcontractor[];
   companyData: CompanyData;
   addCompany: (company: Omit<Company, 'id' | 'createdAt'>) => Promise<void>;
   updateCompany: (id: string, company: Partial<Company>) => Promise<void>;
@@ -37,6 +38,9 @@ interface AppContextType {
   addEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (id: string, employee: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
+  addSubcontractor: (subcontractor: Omit<Subcontractor, 'id' | 'createdAt'>) => Promise<string>;
+  updateSubcontractor: (id: string, subcontractor: Partial<Subcontractor>) => Promise<void>;
+  deleteSubcontractor: (id: string) => Promise<void>;
   updateCompanyData: (data: Partial<CompanyData>) => Promise<void>;
   login: (email: string, password?: string) => Promise<void>;
   signUp: (email: string, password?: string) => Promise<void>;
@@ -50,6 +54,7 @@ const STORAGE_KEYS = {
   WORKS: 'opus_works',
   INSPECTIONS: 'opus_inspections',
   EMPLOYEES: 'opus_employees',
+  SUBCONTRACTORS: 'opus_subcontractors',
   COMPANY_DATA: 'opus_company_data',
   USER: 'opus_user'
 };
@@ -113,10 +118,12 @@ const safeLocalStorageSet = (key: string, value: any) => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const fetchedUserRef = useRef<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [companyData, setCompanyData] = useState<CompanyData>({ 
     name: 'OPUS ASSESSORIAS',
     logoUrl: '' 
@@ -135,26 +142,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savedEmployees = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
 
+    const savedSubcontractors = localStorage.getItem(STORAGE_KEYS.SUBCONTRACTORS);
+    if (savedSubcontractors) setSubcontractors(JSON.parse(savedSubcontractors));
+
     const savedCompanyData = localStorage.getItem(STORAGE_KEYS.COMPANY_DATA);
     if (savedCompanyData) setCompanyData(JSON.parse(savedCompanyData));
   };
 
   const fetchUserData = async (userId: string) => {
     try {
-      // 1. Fetch Company Data
-      const { data: compData, error: compDataErr } = await supabase
-        .from('company_data')
-        .select('*')
-        .maybeSingle();
+      fetchedUserRef.current = userId;
 
-      if (compDataErr) {
-        console.warn('Error fetching company data, using default:', compDataErr);
-      }
+      // Executa todas as requisições em paralelo com Promise.all para máxima performance no carregamento inicial
+      const [
+        compDataRes,
+        cosRes,
+        wsRes,
+        inspsRes,
+        empsRes,
+        subsRes
+      ] = await Promise.all([
+        supabase.from('company_data').select('*').maybeSingle(),
+        supabase.from('companies').select('*'),
+        supabase.from('works').select('*'),
+        supabase.from('inspections').select('*'),
+        supabase.from('employees').select('*'),
+        supabase.from('subcontractors').select('*')
+      ]);
 
-      if (compData) {
-        setCompanyData(mapCompanyDataFromDB(compData));
+      // 1. Processar dados da empresa
+      if (compDataRes.error) {
+        console.warn('Error fetching company data, using default:', compDataRes.error);
+        const savedCompanyData = localStorage.getItem(STORAGE_KEYS.COMPANY_DATA);
+        if (savedCompanyData) setCompanyData(JSON.parse(savedCompanyData));
+      } else if (compDataRes.data) {
+        setCompanyData(mapCompanyDataFromDB(compDataRes.data));
       } else {
-        // If none exists, create default for the user in Supabase
+        // Se não houver, cria um padrão no Supabase
         const defaultCompData = { user_id: userId, name: 'OPUS ASSESSORIAS', logo_url: '' };
         const { data: insertedCompData, error: insertErr } = await supabase
           .from('company_data')
@@ -169,40 +193,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // 2. Fetch Companies
-      const { data: cos, error: cosErr } = await supabase
-        .from('companies')
-        .select('*');
-      if (cosErr) console.error('Error fetching companies:', cosErr);
-      if (cos) {
-        setCompanies(cos.map(mapCompanyFromDB));
+      // 2. Processar Construtoras
+      if (cosRes.error) {
+        console.warn('Error fetching companies:', cosRes.error);
+        const savedCompanies = localStorage.getItem(STORAGE_KEYS.COMPANIES);
+        if (savedCompanies) setCompanies(JSON.parse(savedCompanies));
+      } else if (cosRes.data) {
+        setCompanies(cosRes.data.map(mapCompanyFromDB));
       }
 
-      // 3. Fetch Works
-      const { data: ws, error: wsErr } = await supabase
-        .from('works')
-        .select('*');
-      if (wsErr) console.error('Error fetching works:', wsErr);
-      if (ws) {
-        setWorks(ws.map(mapWorkFromDB));
+      // 3. Processar Obras
+      if (wsRes.error) {
+        console.warn('Error fetching works:', wsRes.error);
+        const savedWorks = localStorage.getItem(STORAGE_KEYS.WORKS);
+        if (savedWorks) setWorks(JSON.parse(savedWorks));
+      } else if (wsRes.data) {
+        setWorks(wsRes.data.map(mapWorkFromDB));
       }
 
-      // 4. Fetch Inspections
-      const { data: insps, error: inspsErr } = await supabase
-        .from('inspections')
-        .select('*');
-      if (inspsErr) console.error('Error fetching inspections:', inspsErr);
-      if (insps) {
-        setInspections(insps.map(mapInspectionFromDB));
+      // 4. Processar Vistorias
+      if (inspsRes.error) {
+        console.warn('Error fetching inspections:', inspsRes.error);
+        const savedInspections = localStorage.getItem(STORAGE_KEYS.INSPECTIONS);
+        if (savedInspections) setInspections(JSON.parse(savedInspections));
+      } else if (inspsRes.data) {
+        setInspections(inspsRes.data.map(mapInspectionFromDB));
       }
 
-      // 5. Fetch Employees
-      const { data: emps, error: empsErr } = await supabase
-        .from('employees')
-        .select('*');
-      if (empsErr) console.error('Error fetching employees:', empsErr);
-      if (emps) {
-        setEmployees(emps.map(mapEmployeeFromDB));
+      // 5. Processar Funcionários
+      if (empsRes.error) {
+        console.warn('Error fetching employees:', empsRes.error);
+        const savedEmployees = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+        if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
+      } else if (empsRes.data) {
+        setEmployees(empsRes.data.map(mapEmployeeFromDB));
+      }
+
+      // 6. Processar Terceirizadas
+      if (subsRes.error) {
+        console.warn('Error fetching subcontractors (table might not exist, using localStorage fallback):', subsRes.error.message);
+        const savedSubcontractors = localStorage.getItem(STORAGE_KEYS.SUBCONTRACTORS);
+        if (savedSubcontractors) setSubcontractors(JSON.parse(savedSubcontractors));
+      } else if (subsRes.data) {
+        setSubcontractors(subsRes.data.map((db: any) => ({
+          id: db.id,
+          name: db.name,
+          cnpj: db.cnpj || '',
+          address: db.address || '',
+          phone: db.phone || '',
+          contactName: db.contact_name || '',
+          contactPhone: db.contact_phone || '',
+          contactEmail: db.contact_email || '',
+          city: db.city || '',
+          uf: db.uf || '',
+          createdAt: db.created_at || new Date().toISOString(),
+          documents: db.documents ? (typeof db.documents === 'string' ? JSON.parse(db.documents) : db.documents) : {}
+        })));
       }
 
     } catch (err) {
@@ -211,32 +257,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
-    // Listen for auth changes
+    // Escuta mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const u = { id: session.user.id, email: session.user.email || '' };
         setUser(u);
         safeLocalStorageSet(STORAGE_KEYS.USER, u);
-        setLoading(true);
-        await fetchUserData(session.user.id);
-        setLoading(false);
+        
+        // EVITA re-carregar do banco de dados ao focar na aba se o usuário já estiver logado e dados carregados!
+        // Supabase dispara o evento de TOKEN_REFRESHED na ativação da janela/aba, o que causava o travamento e lentidão total.
+        if (fetchedUserRef.current !== session.user.id) {
+          setLoading(true);
+          await fetchUserData(session.user.id);
+          setLoading(false);
+        }
       } else {
+        fetchedUserRef.current = null;
         const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
         if (savedUser) {
           const u = JSON.parse(savedUser);
           setUser(u);
-          if (u.id !== 'mock-user-id') {
-            // Re-fetch or load local storage
-            loadLocalStorageData();
-          } else {
-            loadLocalStorageData();
-          }
+          loadLocalStorageData();
         } else {
           setUser(null);
           setCompanies([]);
           setWorks([]);
           setInspections([]);
           setEmployees([]);
+          setSubcontractors([]);
           setCompanyData({ name: 'OPUS ASSESSORIAS', logoUrl: '' });
         }
         setLoading(false);
@@ -310,6 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWorks([]);
     setInspections([]);
     setEmployees([]);
+    setSubcontractors([]);
     setCompanyData({ name: 'OPUS ASSESSORIAS', logoUrl: '' });
   };
 
@@ -536,6 +585,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addSubcontractor = async (subcontractor: Omit<Subcontractor, 'id' | 'createdAt'>): Promise<string> => {
+    const newId = crypto.randomUUID();
+    const newSubcontractor: Subcontractor = {
+      ...subcontractor,
+      id: newId,
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [...subcontractors, newSubcontractor];
+    setSubcontractors(updated);
+    safeLocalStorageSet(STORAGE_KEYS.SUBCONTRACTORS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbSubcontractor = {
+            id: newSubcontractor.id,
+            user_id: user.id,
+            name: newSubcontractor.name,
+            cnpj: newSubcontractor.cnpj,
+            address: newSubcontractor.address,
+            phone: newSubcontractor.phone,
+            contact_name: newSubcontractor.contactName,
+            contact_phone: newSubcontractor.contactPhone,
+            contact_email: newSubcontractor.contactEmail,
+            city: newSubcontractor.city,
+            uf: newSubcontractor.uf,
+            documents: newSubcontractor.documents || {},
+          };
+          const { error } = await supabase.from('subcontractors').insert(dbSubcontractor);
+          if (error) {
+            console.warn('Background sync warning for addSubcontractor:', error.message);
+          }
+        } catch (err) {
+          console.warn('Failed background sync for addSubcontractor:', err);
+        }
+      })();
+    }
+    return newId;
+  };
+
+  const updateSubcontractor = async (id: string, updatedFields: Partial<Subcontractor>) => {
+    const updated = subcontractors.map(s => s.id === id ? { ...s, ...updatedFields } : s);
+    setSubcontractors(updated);
+    safeLocalStorageSet(STORAGE_KEYS.SUBCONTRACTORS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const dbSubcontractor: any = {};
+          if (updatedFields.name !== undefined) dbSubcontractor.name = updatedFields.name;
+          if (updatedFields.cnpj !== undefined) dbSubcontractor.cnpj = updatedFields.cnpj;
+          if (updatedFields.address !== undefined) dbSubcontractor.address = updatedFields.address;
+          if (updatedFields.phone !== undefined) dbSubcontractor.phone = updatedFields.phone;
+          if (updatedFields.contactName !== undefined) dbSubcontractor.contact_name = updatedFields.contactName;
+          if (updatedFields.contactPhone !== undefined) dbSubcontractor.contact_phone = updatedFields.contactPhone;
+          if (updatedFields.contactEmail !== undefined) dbSubcontractor.contact_email = updatedFields.contactEmail;
+          if (updatedFields.city !== undefined) dbSubcontractor.city = updatedFields.city;
+          if (updatedFields.uf !== undefined) dbSubcontractor.uf = updatedFields.uf;
+          if (updatedFields.documents !== undefined) dbSubcontractor.documents = updatedFields.documents;
+
+          const { error } = await supabase.from('subcontractors').update(dbSubcontractor).eq('id', id);
+          if (error) {
+            console.warn('Background sync warning for updateSubcontractor:', error.message);
+          }
+        } catch (err) {
+          console.warn('Failed background sync for updateSubcontractor:', err);
+        }
+      })();
+    }
+  };
+
+  const deleteSubcontractor = async (id: string) => {
+    const updated = subcontractors.filter(s => s.id !== id);
+    setSubcontractors(updated);
+    safeLocalStorageSet(STORAGE_KEYS.SUBCONTRACTORS, updated);
+
+    if (user && user.id !== 'mock-user-id') {
+      (async () => {
+        try {
+          const { error } = await supabase.from('subcontractors').delete().eq('id', id);
+          if (error) {
+            console.warn('Background sync warning for deleteSubcontractor:', error.message);
+          }
+        } catch (err) {
+          console.warn('Failed background sync for deleteSubcontractor:', err);
+        }
+      })();
+    }
+  };
+
   const updateCompanyData = async (data: Partial<CompanyData>) => {
     const updated = { ...companyData, ...data };
     setCompanyData(updated);
@@ -577,6 +717,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       works,
       inspections,
       employees,
+      subcontractors,
       companyData,
       addCompany,
       updateCompany,
@@ -588,6 +729,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addEmployee,
       updateEmployee,
       deleteEmployee,
+      addSubcontractor,
+      updateSubcontractor,
+      deleteSubcontractor,
       updateCompanyData,
       login,
       signUp,

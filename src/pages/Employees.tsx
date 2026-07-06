@@ -187,7 +187,7 @@ const Employees: React.FC = () => {
 
   const filteredEmployees = employees.filter(e => 
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.cpf.includes(searchTerm) ||
+    (e.cpf && e.cpf.includes(searchTerm)) ||
     e.workName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (e.contractorName && e.contractorName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -414,9 +414,9 @@ const Employees: React.FC = () => {
           getDocStatusText(emp.documents?.find(d => d.type === 'NR12')),
           getDocStatusText(emp.documents?.find(d => d.type === 'NR18')),
           getDocStatusText(emp.documents?.find(d => d.type === 'NR35')),
-          emp.serviceOrder || '---',
-          emp.registrationRecord || '---',
-          emp.employmentContract || '---'
+          (emp.serviceOrder === 'Não Conforme' ? 'N/C' : emp.serviceOrder) || '---',
+          (emp.registrationRecord === 'Não Conforme' ? 'N/C' : emp.registrationRecord) || '---',
+          (emp.employmentContract === 'Não Conforme' ? 'N/C' : emp.employmentContract) || '---'
         ];
       }),
       theme: 'striped',
@@ -457,7 +457,7 @@ const Employees: React.FC = () => {
           } else if (text.includes('(A vencer)')) {
             data.cell.styles.textColor = [217, 119, 6];
             data.cell.styles.fontStyle = 'bold';
-          } else if (text === 'Não Conforme') {
+          } else if (text === 'Não Conforme' || text === 'N/C') {
             data.cell.styles.textColor = [220, 38, 38];
             data.cell.styles.fontStyle = 'bold';
           } else if (text === 'Conforme') {
@@ -607,7 +607,7 @@ const Employees: React.FC = () => {
                               ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-red-50 text-red-700 border-red-200"
                           )}>
-                            {employee.serviceOrder}
+                            {employee.serviceOrder === 'Não Conforme' ? 'N/C' : employee.serviceOrder}
                           </span>
                         ) : (
                           <span className="text-gray-400">---</span>
@@ -640,7 +640,7 @@ const Employees: React.FC = () => {
                                 ? "bg-gray-50 text-gray-500 border-gray-200"
                                 : "bg-red-50 text-red-700 border-red-200"
                           )}>
-                            {employee.registrationRecord}
+                            {employee.registrationRecord === 'Não Conforme' ? 'N/C' : employee.registrationRecord}
                           </span>
                         ) : (
                           <span className="text-gray-400">---</span>
@@ -673,7 +673,7 @@ const Employees: React.FC = () => {
                                 ? "bg-gray-50 text-gray-500 border-gray-200"
                                 : "bg-red-50 text-red-700 border-red-200"
                           )}>
-                            {employee.employmentContract}
+                            {employee.employmentContract === 'Não Conforme' ? 'N/C' : employee.employmentContract}
                           </span>
                         ) : (
                           <span className="text-gray-400">---</span>
@@ -1012,12 +1012,12 @@ const Employees: React.FC = () => {
                       </label>
                       <select 
                         name="serviceOrder" 
-                        value={formValues.serviceOrder}
+                        value={formValues.serviceOrder === 'Não Conforme' ? 'N/C' : formValues.serviceOrder}
                         onChange={(e) => setFormValues(prev => ({ ...prev, serviceOrder: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
                       >
                         <option value="Conforme">Conforme</option>
-                        <option value="Não Conforme">Não Conforme</option>
+                        <option value="N/C">N/C</option>
                       </select>
                     </div>
 
@@ -1070,12 +1070,12 @@ const Employees: React.FC = () => {
                       </label>
                       <select 
                         name="registrationRecord" 
-                        value={formValues.registrationRecord}
+                        value={formValues.registrationRecord === 'Não Conforme' ? 'N/C' : formValues.registrationRecord}
                         onChange={(e) => setFormValues(prev => ({ ...prev, registrationRecord: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
                       >
                         <option value="Conforme">Conforme</option>
-                        <option value="Não Conforme">Não Conforme</option>
+                        <option value="N/C">N/C</option>
                         <option value="N/A">N/A</option>
                       </select>
                     </div>
@@ -1129,12 +1129,12 @@ const Employees: React.FC = () => {
                       </label>
                       <select 
                         name="employmentContract" 
-                        value={formValues.employmentContract}
+                        value={formValues.employmentContract === 'Não Conforme' ? 'N/C' : formValues.employmentContract}
                         onChange={(e) => setFormValues(prev => ({ ...prev, employmentContract: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
                       >
                         <option value="Conforme">Conforme</option>
-                        <option value="Não Conforme">Não Conforme</option>
+                        <option value="N/C">N/C</option>
                         <option value="N/A">N/A</option>
                       </select>
                     </div>

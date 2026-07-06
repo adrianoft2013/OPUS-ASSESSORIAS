@@ -22,6 +22,7 @@ export interface Work {
   phone: string;
   city: string;
   uf: string;
+  subcontractorIds?: string[];
 }
 
 export interface Evidence {
@@ -73,4 +74,29 @@ export interface Employee {
 export interface CompanyData {
   logoUrl?: string;
   name: string;
+}
+
+export interface SubcontractorDocument {
+  status: 'C' | 'N/C' | 'N/A';
+  dueDate?: string;
+  date?: string;
+  fileUrl?: string;
+  fileName?: string;
+}
+
+export interface Subcontractor {
+  id: string;
+  name: string;
+  cnpj: string;
+  address: string;
+  phone: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  city: string;
+  uf: string;
+  createdAt: string;
+  documents?: {
+    [key: string]: SubcontractorDocument;
+  };
 }
