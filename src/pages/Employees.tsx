@@ -78,7 +78,7 @@ const getStatusColor = (dueDate: string) => {
 };
 
 const Employees: React.FC = () => {
-  const { employees, works, companies, addEmployee, updateEmployee, deleteEmployee, companyData } = useApp();
+  const { employees, works, companies, subcontractors, addEmployee, updateEmployee, deleteEmployee, companyData } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string, name: string } | null>(null);
   
@@ -450,19 +450,35 @@ const Employees: React.FC = () => {
       },
       didParseCell: (data: any) => {
         if (data.section === 'body') {
-          const text = data.cell.text[0] || '';
-          if (text.includes('(Vencido)')) {
-            data.cell.styles.textColor = [220, 38, 38];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (text.includes('(A vencer)')) {
-            data.cell.styles.textColor = [217, 119, 6];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (text === 'Não Conforme' || text === 'N/C') {
-            data.cell.styles.textColor = [220, 38, 38];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (text === 'Conforme') {
-            data.cell.styles.textColor = [22, 163, 74];
-            data.cell.styles.fontStyle = 'bold';
+          const text = (data.cell.text && data.cell.text[0]) || '';
+          const cleanText = text.trim();
+          
+          if (data.column.index >= 3) {
+            if (cleanText === '---') {
+              data.cell.styles.textColor = [156, 163, 175]; // text-gray-400
+            } else if (cleanText.includes('(Vencido)') || cleanText === 'Não Conforme' || cleanText === 'N/C') {
+              data.cell.styles.fillColor = [254, 242, 242]; // bg-red-50
+              data.cell.styles.textColor = [185, 28, 28]; // text-red-700
+              data.cell.styles.fontStyle = 'bold';
+            } else if (cleanText.includes('(A vencer)')) {
+              data.cell.styles.fillColor = [254, 252, 232]; // bg-yellow-50
+              data.cell.styles.textColor = [161, 98, 7]; // text-yellow-700
+              data.cell.styles.fontStyle = 'bold';
+            } else if (cleanText === 'N/A') {
+              if (data.column.index === 11 || data.column.index === 12) {
+                data.cell.styles.fillColor = [249, 250, 251]; // bg-gray-50
+                data.cell.styles.textColor = [107, 114, 128]; // text-gray-500
+                data.cell.styles.fontStyle = 'bold';
+              } else {
+                data.cell.styles.fillColor = [254, 252, 232]; // bg-yellow-50
+                data.cell.styles.textColor = [161, 98, 7]; // text-yellow-700
+                data.cell.styles.fontStyle = 'bold';
+              }
+            } else if (cleanText === 'Conforme' || /^\d{2}\/\d{2}\/\d{4}$/.test(cleanText)) {
+              data.cell.styles.fillColor = [240, 253, 244]; // bg-green-50
+              data.cell.styles.textColor = [21, 128, 61]; // text-green-700
+              data.cell.styles.fontStyle = 'bold';
+            }
           }
         }
       },
@@ -836,13 +852,24 @@ const Employees: React.FC = () => {
                     <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <Briefcase size={16} /> Empresa Terceirizada (Opcional)
                     </label>
-                    <input 
+                    <select 
                       name="contractorName" 
                       value={formValues.contractorName}
                       onChange={(e) => setFormValues(prev => ({ ...prev, contractorName: e.target.value }))}
-                      placeholder="Deixe em branco se for funcionário próprio"
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white"
-                    />
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
+                    >
+                      <option value="">Selecione uma empresa terceirizada (Opcional)</option>
+                      {formValues.contractorName && !subcontractors.some(sub => sub.name === formValues.contractorName) && (
+                        <option value={formValues.contractorName}>
+                          {formValues.contractorName} (Não encontrada nas terceirizadas)
+                        </option>
+                      )}
+                      {subcontractors && subcontractors.map((sub) => (
+                        <option key={sub.id} value={sub.name}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
