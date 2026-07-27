@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, X, User, HardHat, FileText, CheckCircle2, AlertCircle, Calendar, Camera, Trash2, Download, Building2, Edit2, Briefcase, ArrowLeft } from 'lucide-react';
+import { Search, Plus, X, User, HardHat, FileText, CheckCircle2, AlertCircle, Calendar, Camera, Trash2, Download, Building2, Edit2, Briefcase, ArrowLeft, Mail, Copy, Check, ExternalLink } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useApp } from '../AppContext';
@@ -7,7 +7,7 @@ import { Employee, EmployeeDocument } from '../types';
 import { cn } from '../lib/utils';
 
 const DOCUMENT_TYPES = ['EPI', 'ASO', 'NR06', 'NR10', 'NR12', 'NR18', 'NR35'];
-const ALL_DOCUMENT_TYPES = [...DOCUMENT_TYPES, 'Ordem de Serviço', 'Ficha de Registro', 'Contrato de Trabalho'];
+const ALL_DOCUMENT_TYPES = [...DOCUMENT_TYPES, 'Ordem de Serviço', 'Ficha de Registro', 'Contrato de Trabalho', 'e-Social'];
 
 const cleanForLocalStorage = <T,>(obj: T): T => {
   if (typeof obj === 'string') {
@@ -82,6 +82,14 @@ const Employees: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string, name: string } | null>(null);
   
+  // States for Email Modal
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailEmployee, setEmailEmployee] = useState<Employee | null>(null);
+  const [emailRecipient, setEmailRecipient] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [copiedText, setCopiedText] = useState(false);
+  
   const [isModalOpen, setIsModalOpen] = useState(() => {
     try {
       return localStorage.getItem('draft_employee_open') === 'true';
@@ -129,7 +137,8 @@ const Employees: React.FC = () => {
         contractorName: '',
         serviceOrder: 'Conforme',
         registrationRecord: 'Conforme',
-        employmentContract: 'Conforme'
+        employmentContract: 'Conforme',
+        esocial: 'Conforme'
       };
     } catch {
       return {
@@ -141,7 +150,8 @@ const Employees: React.FC = () => {
         contractorName: '',
         serviceOrder: 'Conforme',
         registrationRecord: 'Conforme',
-        employmentContract: 'Conforme'
+        employmentContract: 'Conforme',
+        esocial: 'Conforme'
       };
     }
   });
@@ -212,7 +222,8 @@ const Employees: React.FC = () => {
         contractorName: employee.contractorName || '',
         serviceOrder: employee.serviceOrder || 'Conforme',
         registrationRecord: employee.registrationRecord || 'Conforme',
-        employmentContract: employee.employmentContract || 'Conforme'
+        employmentContract: employee.employmentContract || 'Conforme',
+        esocial: employee.esocial || 'Conforme'
       });
     } else {
       setSelectedEmployee(null);
@@ -230,7 +241,8 @@ const Employees: React.FC = () => {
           contractorName: '',
           serviceOrder: 'Conforme',
           registrationRecord: 'Conforme',
-          employmentContract: 'Conforme'
+          employmentContract: 'Conforme',
+          esocial: 'Conforme'
         });
       }
     }
@@ -251,7 +263,8 @@ const Employees: React.FC = () => {
       contractorName: '',
       serviceOrder: 'Conforme',
       registrationRecord: 'Conforme',
-      employmentContract: 'Conforme'
+      employmentContract: 'Conforme',
+      esocial: 'Conforme'
     });
     try {
       localStorage.removeItem('draft_employee_open');
@@ -312,6 +325,7 @@ const Employees: React.FC = () => {
       serviceOrder: formValues.serviceOrder,
       registrationRecord: formValues.registrationRecord,
       employmentContract: formValues.employmentContract,
+      esocial: formValues.esocial,
       documents: formDocuments,
     };
 
@@ -331,6 +345,7 @@ const Employees: React.FC = () => {
   const serviceOrderDoc = formDocuments.find(d => d.type === 'Ordem de Serviço') || { type: 'Ordem de Serviço', dueDate: '', fileName: '', fileUrl: '' };
   const registrationRecordDoc = formDocuments.find(d => d.type === 'Ficha de Registro') || { type: 'Ficha de Registro', dueDate: '', fileName: '', fileUrl: '' };
   const employmentContractDoc = formDocuments.find(d => d.type === 'Contrato de Trabalho') || { type: 'Contrato de Trabalho', dueDate: '', fileName: '', fileUrl: '' };
+  const esocialDoc = formDocuments.find(d => d.type === 'e-Social') || { type: 'e-Social', dueDate: '', fileName: '', fileUrl: '' };
 
   const handleExportPDF = () => {
     const doc = new jsPDF({
@@ -400,7 +415,8 @@ const Employees: React.FC = () => {
         'NR35',
         'O.S.',
         'Reg.',
-        'Contr.'
+        'Contr.',
+        'e-Social'
       ]],
       body: filteredEmployees.map(emp => {
         return [
@@ -416,7 +432,8 @@ const Employees: React.FC = () => {
           getDocStatusText(emp.documents?.find(d => d.type === 'NR35')),
           (emp.serviceOrder === 'Não Conforme' ? 'N/C' : emp.serviceOrder) || '---',
           (emp.registrationRecord === 'Não Conforme' ? 'N/C' : emp.registrationRecord) || '---',
-          (emp.employmentContract === 'Não Conforme' ? 'N/C' : emp.employmentContract) || '---'
+          (emp.employmentContract === 'Não Conforme' ? 'N/C' : emp.employmentContract) || '---',
+          (emp.esocial === 'Não Conforme' ? 'N/C' : emp.esocial) || '---'
         ];
       }),
       theme: 'striped',
@@ -446,7 +463,8 @@ const Employees: React.FC = () => {
         9: { halign: 'center' },
         10: { halign: 'center' },
         11: { halign: 'center' },
-        12: { halign: 'center' }
+        12: { halign: 'center' },
+        13: { halign: 'center' }
       },
       didParseCell: (data: any) => {
         if (data.section === 'body') {
@@ -465,7 +483,7 @@ const Employees: React.FC = () => {
               data.cell.styles.textColor = [161, 98, 7]; // text-yellow-700
               data.cell.styles.fontStyle = 'bold';
             } else if (cleanText === 'N/A') {
-              if (data.column.index === 11 || data.column.index === 12) {
+              if (data.column.index >= 10 && data.column.index <= 13) {
                 data.cell.styles.fillColor = [249, 250, 251]; // bg-gray-50
                 data.cell.styles.textColor = [107, 114, 128]; // text-gray-500
                 data.cell.styles.fontStyle = 'bold';
@@ -489,6 +507,69 @@ const Employees: React.FC = () => {
     });
 
     doc.save(`Relatorio_Funcionarios_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleSendEmail = (employee: Employee) => {
+    // Encontrar empresa terceirizada ou construtora para obter o e-mail de contato
+    const subcontractor = subcontractors?.find(sub => sub.name === employee.contractorName);
+    const company = companies?.find(c => c.id === employee.companyId);
+    
+    const emailTo = subcontractor?.contactEmail || company?.contactEmail || '';
+    
+    const subject = `[Opus Assessorias] Status de Documentação - ${employee.name}`;
+    
+    // Construir o relatório de documentos
+    const docStatusLines = DOCUMENT_TYPES.map(type => {
+      const doc = employee.documents?.find(d => d.type === type);
+      const status = doc?.status || (doc?.dueDate ? 'Conforme' : '---');
+      let statusText = status;
+      if (status === 'Conforme' && doc?.dueDate) {
+        const dueDateFormatted = new Date(doc.dueDate).toLocaleDateString('pt-BR');
+        statusText = `Conforme (Validade: ${dueDateFormatted})`;
+      }
+      return `${type}: ${statusText}`;
+    });
+
+    const serviceOrderText = employee.serviceOrder === 'Não Conforme' ? 'N/C' : (employee.serviceOrder || '---');
+    const registrationRecordText = employee.registrationRecord === 'Não Conforme' ? 'N/C' : (employee.registrationRecord || '---');
+    const employmentContractText = employee.employmentContract === 'Não Conforme' ? 'N/C' : (employee.employmentContract || '---');
+    const esocialText = employee.esocial === 'Não Conforme' ? 'N/C' : (employee.esocial || '---');
+
+    // List of uploaded documents
+    const uploadedDocs = employee.documents?.filter(doc => doc.fileUrl && doc.fileName) || [];
+    let attachmentsText = '';
+    
+    if (uploadedDocs.length > 0) {
+      attachmentsText = `\n\nDocumentos e Comprovantes em Anexo:\n` + 
+        uploadedDocs.map(doc => {
+          if (doc.fileUrl && doc.fileUrl.startsWith('http')) {
+            return `- ${doc.type}: ${doc.fileName} (Link: ${doc.fileUrl})`;
+          } else {
+            return `- ${doc.type}: ${doc.fileName}`;
+          }
+        }).join('\n');
+    }
+
+    const body = 
+      `Olá,\n\n` +
+      `Gostaríamos de apresentar o status atual da documentação do funcionário ${employee.name} (${employee.role || 'Sem cargo'}), alocado na obra ${employee.workName || 'Sem obra'}.\n\n` +
+      `Status dos Documentos:\n` +
+      docStatusLines.map(line => `- ${line}`).join('\n') + `\n` +
+      `- Ordem de Serviço: ${serviceOrderText}\n` +
+      `- Ficha de Registro: ${registrationRecordText}\n` +
+      `- Contrato de Trabalho: ${employmentContractText}\n` +
+      `- e-Social: ${esocialText}` +
+      attachmentsText + `\n\n` +
+      `Por favor, solicitamos a regularização das pendências sinalizadas.\n\n` +
+      `Atenciosamente,\n` +
+      `${companyData?.name || 'Opus Assessorias'}`;
+    
+    setEmailEmployee(employee);
+    setEmailRecipient(emailTo);
+    setEmailSubject(subject);
+    setEmailBody(body);
+    setEmailModalOpen(true);
+    setCopiedText(false);
   };
 
   return (
@@ -545,6 +626,7 @@ const Employees: React.FC = () => {
                 <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-center">Ordem de Serviço</th>
                 <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-center">Ficha de Registro</th>
                 <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-center">Contrato de Trabalho</th>
+                <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-center">e-Social</th>
                 <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
@@ -710,8 +792,48 @@ const Employees: React.FC = () => {
                         })()}
                       </div>
                     </td>
+                    {/* e-Social */}
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        {employee.esocial ? (
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase border",
+                            employee.esocial === 'Conforme'
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : employee.esocial === 'N/A'
+                                ? "bg-gray-50 text-gray-500 border-gray-200"
+                                : "bg-red-50 text-red-700 border-red-200"
+                          )}>
+                            {employee.esocial === 'Não Conforme' ? 'N/C' : employee.esocial}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">---</span>
+                        )}
+                        {(() => {
+                          const doc = employee.documents?.find(d => d.type === 'e-Social');
+                          return doc?.fileUrl ? (
+                            <a 
+                              href={doc.fileUrl} 
+                              download={doc.fileName}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[9px] text-brand hover:underline"
+                              title={doc.fileName}
+                            >
+                              <Download size={10} /> Baixar
+                            </a>
+                          ) : null;
+                        })()}
+                      </div>
+                    </td>
                      <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => handleSendEmail(employee)}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Enviar E-mail"
+                        >
+                          <Mail size={16} />
+                        </button>
                         <button 
                           onClick={() => handleOpenModal(employee)}
                           className="p-2 text-gray-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
@@ -732,7 +854,7 @@ const Employees: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={DOCUMENT_TYPES.length + 7} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={DOCUMENT_TYPES.length + 8} className="px-6 py-12 text-center text-gray-400">
                     Nenhum funcionário encontrado.
                   </td>
                 </tr>
@@ -1037,15 +1159,14 @@ const Employees: React.FC = () => {
                       <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <FileText size={16} /> Ordem de Serviço
                       </label>
-                      <select 
+                      <input 
+                        type="text"
                         name="serviceOrder" 
-                        value={formValues.serviceOrder === 'Não Conforme' ? 'N/C' : formValues.serviceOrder}
+                        value={formValues.serviceOrder === 'Não Conforme' ? 'N/C' : (formValues.serviceOrder || '')}
                         onChange={(e) => setFormValues(prev => ({ ...prev, serviceOrder: e.target.value }))}
+                        placeholder="Status ou observação (ex: Conforme, N/C, N/A)..."
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
-                      >
-                        <option value="Conforme">Conforme</option>
-                        <option value="N/C">N/C</option>
-                      </select>
+                      />
                     </div>
 
                     <div className="flex-1 space-y-2">
@@ -1095,16 +1216,14 @@ const Employees: React.FC = () => {
                       <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <FileText size={16} /> Ficha de Registro
                       </label>
-                      <select 
+                      <input 
+                        type="text"
                         name="registrationRecord" 
-                        value={formValues.registrationRecord === 'Não Conforme' ? 'N/C' : formValues.registrationRecord}
+                        value={formValues.registrationRecord === 'Não Conforme' ? 'N/C' : (formValues.registrationRecord || '')}
                         onChange={(e) => setFormValues(prev => ({ ...prev, registrationRecord: e.target.value }))}
+                        placeholder="Status ou observação (ex: Conforme, N/C, N/A)..."
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
-                      >
-                        <option value="Conforme">Conforme</option>
-                        <option value="N/C">N/C</option>
-                        <option value="N/A">N/A</option>
-                      </select>
+                      />
                     </div>
 
                     <div className="flex-1 space-y-2">
@@ -1154,16 +1273,14 @@ const Employees: React.FC = () => {
                       <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <FileText size={16} /> Contrato de Trabalho
                       </label>
-                      <select 
+                      <input 
+                        type="text"
                         name="employmentContract" 
-                        value={formValues.employmentContract === 'Não Conforme' ? 'N/C' : formValues.employmentContract}
+                        value={formValues.employmentContract === 'Não Conforme' ? 'N/C' : (formValues.employmentContract || '')}
                         onChange={(e) => setFormValues(prev => ({ ...prev, employmentContract: e.target.value }))}
+                        placeholder="Status ou observação (ex: Conforme, N/C, N/A)..."
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
-                      >
-                        <option value="Conforme">Conforme</option>
-                        <option value="N/C">N/C</option>
-                        <option value="N/A">N/A</option>
-                      </select>
+                      />
                     </div>
 
                     <div className="flex-1 space-y-2">
@@ -1200,6 +1317,63 @@ const Employees: React.FC = () => {
                               accept="image/*,application/pdf" 
                               className="hidden" 
                               onChange={(e) => handleFileUpload('Contrato de Trabalho', e)} 
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* e-Social */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col md:flex-row md:items-end gap-4">
+                    <div className="flex-1 space-y-2">
+                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <FileText size={16} /> e-Social
+                      </label>
+                      <input 
+                        type="text"
+                        name="esocial" 
+                        value={formValues.esocial === 'Não Conforme' ? 'N/C' : (formValues.esocial || '')}
+                        onChange={(e) => setFormValues(prev => ({ ...prev, esocial: e.target.value }))}
+                        placeholder="Status ou observação (ex: Conforme, N/C, N/A)..."
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none bg-white text-sm font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div className="flex-1 space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Arquivo e-Social (PDF/IMG)</label>
+                      <div className="flex items-center gap-2">
+                        {esocialDoc.fileName ? (
+                          <div className="flex-1 flex items-center justify-between px-4 py-2 bg-white border border-gray-200 rounded-lg">
+                            <span className="text-sm text-gray-600 truncate max-w-[150px]">{esocialDoc.fileName}</span>
+                            <div className="flex items-center gap-1">
+                              {esocialDoc.fileUrl && (
+                                <a 
+                                  href={esocialDoc.fileUrl} 
+                                  download={esocialDoc.fileName}
+                                  className="p-1 text-gray-400 hover:text-gray-900"
+                                >
+                                  <Download size={16} />
+                                </a>
+                              )}
+                              <button 
+                                type="button"
+                                onClick={() => handleRemoveFile('e-Social')}
+                                className="p-1 text-gray-400 hover:text-red-500"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all cursor-pointer text-sm font-medium text-gray-500">
+                            <Camera size={16} />
+                            Anexar Documento
+                            <input 
+                              type="file" 
+                              accept="image/*,application/pdf" 
+                              className="hidden" 
+                              onChange={(e) => handleFileUpload('e-Social', e)} 
                             />
                           </label>
                         )}
@@ -1260,6 +1434,195 @@ const Employees: React.FC = () => {
               >
                 Sim, Excluir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {emailModalOpen && emailEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Enviar E-mail de Conformidade</h3>
+                  <p className="text-xs text-gray-500">Funcionário: {emailEmployee.name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setEmailModalOpen(false)}
+                className="p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-lg transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Form fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Destinatário (E-mail)</label>
+                  <input 
+                    type="email"
+                    value={emailRecipient}
+                    onChange={(e) => setEmailRecipient(e.target.value)}
+                    placeholder="exemplo@email.com"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Assunto</label>
+                  <input 
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none text-sm bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Uploaded Documents Attachment Section */}
+              <div className="p-4 bg-brand/5 border border-brand/10 rounded-xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="p-1.5 bg-brand/10 text-brand rounded-lg shrink-0">
+                      <Download size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900">Documentos para Anexar (Carregados no Supabase)</h4>
+                      <p className="text-xs text-gray-500 leading-relaxed mt-0.5">
+                        Os navegadores não conseguem anexar arquivos locais diretamente ao seu leitor de e-mail por motivos de segurança. 
+                        <strong> Por favor, faça o download dos arquivos abaixo para anexá-los manualmente em seu e-mail.</strong>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {(() => {
+                    const files = emailEmployee.documents?.filter(doc => doc.fileUrl && doc.fileName) || [];
+                    if (files.length > 0) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            files.forEach((doc, idx) => {
+                              setTimeout(() => {
+                                const link = document.createElement('a');
+                                link.href = doc.fileUrl || '';
+                                link.download = doc.fileName || doc.type;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }, idx * 300); // Stagger to prevent browser from blocking multiple downloads
+                            });
+                          }}
+                          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-brand text-white hover:bg-brand-hover text-xs font-bold rounded-lg transition-all shadow-sm cursor-pointer"
+                        >
+                          <Download size={13} />
+                          Baixar Todos
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                {/* List of files with download links */}
+                <div className="divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 overflow-hidden">
+                  {(() => {
+                    const files = emailEmployee.documents?.filter(doc => doc.fileUrl && doc.fileName) || [];
+                    if (files.length === 0) {
+                      return (
+                        <div className="p-4 text-center text-xs text-gray-400">
+                          Nenhum arquivo de documento foi carregado para este funcionário no Supabase.
+                        </div>
+                      );
+                    }
+                    return files.map((doc, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center gap-2 min-w-0 pr-4">
+                          <FileText size={16} className="text-gray-400 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-900 truncate max-w-[280px] sm:max-w-[380px]">{doc.fileName}</p>
+                            <p className="text-[10px] text-gray-500">{doc.type}</p>
+                          </div>
+                        </div>
+                        <a 
+                          href={doc.fileUrl}
+                          download={doc.fileName}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900 text-xs font-semibold rounded-lg transition-all border border-gray-200"
+                        >
+                          <Download size={12} />
+                          Baixar
+                        </a>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Message Body */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Mensagem do E-mail</label>
+                <textarea 
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand/10 focus:border-brand outline-none text-sm bg-white font-sans leading-relaxed"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(emailBody);
+                  setCopiedText(true);
+                  setTimeout(() => setCopiedText(false), 2000);
+                }}
+                className={cn(
+                  "w-full sm:w-auto px-4 py-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 border transition-all cursor-pointer",
+                  copiedText 
+                    ? "bg-green-50 text-green-700 border-green-200" 
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                )}
+              >
+                {copiedText ? (
+                  <>
+                    <Check size={14} />
+                    Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    Copiar Texto do E-mail
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEmailModalOpen(false)}
+                  className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <a
+                  href={`mailto:${emailRecipient}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
+                  onClick={() => setEmailModalOpen(false)}
+                  className="w-full sm:w-auto px-4.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ExternalLink size={14} />
+                  Abrir E-mail
+                </a>
+              </div>
             </div>
           </div>
         </div>

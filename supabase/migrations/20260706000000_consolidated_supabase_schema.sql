@@ -170,11 +170,13 @@ CREATE TABLE IF NOT EXISTS public.employees (
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS service_order TEXT;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS registration_record TEXT;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS employment_contract TEXT;
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS esocial TEXT;
 
 -- Comentários explicativos para documentar o propósito das colunas no Supabase
 COMMENT ON COLUMN public.employees.service_order IS 'Ordem de Serviço (Conforme / Não Conforme / N/C).';
 COMMENT ON COLUMN public.employees.registration_record IS 'Ficha de Registro (Conforme / Não Conforme / N/C).';
 COMMENT ON COLUMN public.employees.employment_contract IS 'Contrato de Trabalho (Conforme / Não Conforme / N/C).';
+COMMENT ON COLUMN public.employees.esocial IS 'e-Social (Conforme / Não Conforme / N/A ou texto livre).';
 
 -- Garantir Row Level Security (RLS) habilitado
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;

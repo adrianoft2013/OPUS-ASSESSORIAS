@@ -637,6 +637,7 @@ const Works: React.FC = () => {
                             <th className="px-3 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Ordem de Serviço</th>
                             <th className="px-3 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Ficha de Registro</th>
                             <th className="px-3 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Contrato de Trabalho</th>
+                            <th className="px-3 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">e-Social</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -684,6 +685,11 @@ const Works: React.FC = () => {
                               <td className="px-3 py-3 text-center">
                                 <div className="flex justify-center">
                                   {renderOtherStatus(emp.employmentContract)}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <div className="flex justify-center">
+                                  {renderOtherStatus(emp.esocial)}
                                 </div>
                               </td>
                             </tr>

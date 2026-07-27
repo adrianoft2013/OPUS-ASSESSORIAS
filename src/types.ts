@@ -69,6 +69,7 @@ export interface Employee {
   serviceOrder?: string;
   registrationRecord?: string;
   employmentContract?: string;
+  esocial?: string;
 }
 
 export interface CompanyData {
